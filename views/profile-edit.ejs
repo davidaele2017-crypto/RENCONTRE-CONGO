@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Mon profil — Rencontre Congo' }) %>
+</head>
+<body>
+  <%- include('partials/nav') %>
+  <main class="page">
+    <h1>Mon profil</h1>
+    <% if (besoin) { %>
+      <div class="alert alert-info">Complète ton profil pour commencer à découvrir des profils 👇</div>
+    <% } %>
+    <% if (error) { %><div class="alert"><%= error %></div><% } %>
+
+    <form method="POST" action="/profile/edit" enctype="multipart/form-data" class="form">
+      <div class="photo-row">
+        <div class="avatar avatar-lg">
+          <% if (profile.photo) { %>
+            <img src="/uploads/<%= profile.photo %>" alt="Photo de profil">
+          <% } else { %>
+            <span><%= (profile.name || '?').charAt(0).toUpperCase() %></span>
+          <% } %>
+        </div>
+        <label class="file-label">
+          Choisir une photo
+          <input type="file" name="photo" accept="image/*">
+        </label>
+      </div>
+
+      <label>Prénom / pseudo
+        <input type="text" name="name" required maxlength="60" value="<%= profile.name || '' %>" placeholder="Ex : Merveille">
+      </label>
+
+      <label>Âge
+        <input type="number" name="age" required min="18" max="99" value="<%= profile.age || '' %>">
+      </label>
+
+      <label>Je suis
+        <select name="gender" required>
+          <option value="">-- choisir --</option>
+          <option value="Homme" <%= profile.gender==='Homme' ? 'selected' : '' %>>Homme</option>
+          <option value="Femme" <%= profile.gender==='Femme' ? 'selected' : '' %>>Femme</option>
+        </select>
+      </label>
+
+      <label>Je recherche
+        <select name="lookingFor" required>
+          <option value="">-- choisir --</option>
+          <option value="Homme" <%= profile.lookingFor==='Homme' ? 'selected' : '' %>>Un homme</option>
+          <option value="Femme" <%= profile.lookingFor==='Femme' ? 'selected' : '' %>>Une femme</option>
+          <option value="Les deux" <%= profile.lookingFor==='Les deux' ? 'selected' : '' %>>Peu importe</option>
+        </select>
+      </label>
+
+      <label>Pays
+        <select name="pays">
+          <option value="RDC" <%= (profile.pays||'RDC')==='RDC' ? 'selected' : '' %>>République Démocratique du Congo</option>
+          <option value="Congo-Brazzaville" <%= profile.pays==='Congo-Brazzaville' ? 'selected' : '' %>>République du Congo (Brazzaville)</option>
+        </select>
+      </label>
+
+      <label>Ville
+        <input type="text" name="ville" list="villes-list" required value="<%= profile.ville || '' %>" placeholder="Ex : Kinshasa">
+        <datalist id="villes-list">
+          <% Object.values(villes).flat().forEach(v => { %><option value="<%= v %>"><% }) %>
+        </datalist>
+      </label>
+
+      <fieldset class="langues">
+        <legend>Langues parlées</legend>
+        <% langues.forEach(l => { %>
+          <label class="checkbox">
+            <input type="checkbox" name="langues" value="<%= l %>" <%= (profile.langues||[]).includes(l) ? 'checked' : '' %>>
+            <%= l %>
+          </label>
+        <% }) %>
+      </fieldset>
+
+      <label>À propos de moi
+        <textarea name="bio" maxlength="500" rows="4" placeholder="Parle un peu de toi..."><%= profile.bio || '' %></textarea>
+      </label>
+
+      <button type="submit" class="btn btn-primary">Enregistrer mon profil</button>
+    </form>
+  </main>
+</body>
+</html>

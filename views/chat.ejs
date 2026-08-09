@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: (profile.name + ' — Rencontre Congo') }) %>
+</head>
+<body class="chat-page">
+  <header class="topbar">
+    <a class="brand" href="/matches">← <%= profile.name %></a>
+  </header>
+  <main class="chat-window" id="chat-window" data-match-id="<%= match.id %>">
+    <ul class="message-list" id="message-list">
+      <% messages.forEach(m => { %>
+        <li class="bubble <%= m.fromUserId === meId ? 'mine' : 'theirs' %>" data-id="<%= m.id %>"><%= m.text %></li>
+      <% }) %>
+    </ul>
+  </main>
+  <form id="chat-form" class="chat-form">
+    <input type="text" id="chat-input" name="text" placeholder="Écris un message..." autocomplete="off" maxlength="2000" required>
+    <button type="submit" class="btn btn-primary btn-small">Envoyer</button>
+  </form>
+  <script src="/public/js/chat.js"></script>
+</body>
+</html>

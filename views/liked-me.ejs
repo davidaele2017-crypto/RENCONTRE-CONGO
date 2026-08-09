@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Qui m\'a liké — Rencontre Congo' }) %>
+</head>
+<body>
+  <%- include('partials/nav') %>
+  <main class="page">
+    <h1>Qui t'a liké(e) ✨</h1>
+    <% if (profiles.length === 0) { %>
+      <div class="empty-state">
+        <p>Personne pour l'instant.</p>
+        <p>Complète ton profil et découvre du monde pour te faire remarquer !</p>
+      </div>
+    <% } else { %>
+      <ul class="match-list">
+        <% profiles.forEach(profile => { %>
+          <li>
+            <div class="match-item">
+              <div class="avatar avatar-md">
+                <% if (profile.photo) { %>
+                  <img src="/uploads/<%= profile.photo %>" alt="<%= profile.name %>">
+                <% } else { %>
+                  <span><%= profile.name.charAt(0).toUpperCase() %></span>
+                <% } %>
+              </div>
+              <div class="match-item-info">
+                <strong><%= profile.name %>, <%= profile.age %></strong>
+                <span class="location">📍 <%= profile.ville %></span>
+              </div>
+              <form method="POST" action="/browse/like/<%= profile.userId %>" class="inline">
+                <button type="submit" class="btn btn-small btn-primary">❤️ Matcher</button>
+              </form>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </main>
+</body>
+</html>

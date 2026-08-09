@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Découvrir — Rencontre Congo' }) %>
+</head>
+<body>
+  <%- include('partials/nav') %>
+  <main class="page">
+    <% if (matched) { %>
+      <div class="match-banner">
+        🎉 C'est un match avec <strong><%= matched %></strong> !
+        <a href="/matches" class="btn btn-small">Voir mes matchs</a>
+      </div>
+    <% } %>
+
+    <% if (limite) { %>
+      <div class="upsell-banner">
+        😅 Tu as utilisé tes <%= plan.dailyLikeLimit %> likes gratuits d'aujourd'hui.
+        <a href="/premium" class="btn btn-small">Passer Premium pour des likes illimités</a>
+      </div>
+    <% } else if (remainingLikes !== Infinity) { %>
+      <p class="likes-counter"><%= remainingLikes %> like(s) gratuit(s) restant(s) aujourd'hui</p>
+    <% } %>
+
+    <form method="GET" action="/browse" class="filter-bar">
+      <select name="ville">
+        <option value="">Toutes les villes</option>
+        <% Object.values(villes).flat().forEach(v => { %>
+          <option value="<%= v %>" <%= filters.ville===v ? 'selected' : '' %>><%= v %></option>
+        <% }) %>
+      </select>
+      <select name="langue">
+        <option value="">Toutes les langues</option>
+        <% langues.forEach(l => { %>
+          <option value="<%= l %>" <%= filters.langue===l ? 'selected' : '' %>><%= l %></option>
+        <% }) %>
+      </select>
+      <button type="submit" class="btn btn-small">Filtrer</button>
+    </form>
+
+    <% if (plan.advancedFilters) { %>
+      <form method="GET" action="/browse" class="filter-bar">
+        <input type="hidden" name="ville" value="<%= filters.ville %>">
+        <input type="hidden" name="langue" value="<%= filters.langue %>">
+        <input type="number" name="ageMin" min="18" max="99" placeholder="Âge min" value="<%= filters.ageMin || '' %>">
+        <input type="number" name="ageMax" min="18" max="99" placeholder="Âge max" value="<%= filters.ageMax || '' %>">
+        <button type="submit" class="btn btn-small">👑</button>
+      </form>
+    <% } else { %>
+      <a href="/premium" class="filter-locked">🔒 Filtre par tranche d'âge — réservé au pack VIP</a>
+    <% } %>
+
+    <% if (candidate) { %>
+      <div class="swipe-card">
+        <div class="swipe-photo">
+          <% if (candidateIsVip) { %><span class="vip-badge">👑 VIP</span><% } %>
+          <% if (candidate.photo) { %>
+            <img src="/uploads/<%= candidate.photo %>" alt="<%= candidate.name %>">
+          <% } else { %>
+            <div class="avatar avatar-xl"><span><%= candidate.name.charAt(0).toUpperCase() %></span></div>
+          <% } %>
+        </div>
+        <div class="swipe-info">
+          <h2><%= candidate.name %>, <%= candidate.age %></h2>
+          <p class="location">📍 <%= candidate.ville %>, <%= candidate.pays %></p>
+          <% if (candidate.langues && candidate.langues.length) { %>
+            <p class="langue-tags">
+              <% candidate.langues.forEach(l => { %><span class="tag"><%= l %></span><% }) %>
+            </p>
+          <% } %>
+          <% if (candidate.bio) { %><p class="bio"><%= candidate.bio %></p><% } %>
+        </div>
+        <div class="swipe-actions">
+          <form method="POST" action="/browse/pass/<%= candidate.userId %>">
+            <input type="hidden" name="ville" value="<%= filters.ville %>">
+            <input type="hidden" name="langue" value="<%= filters.langue %>">
+            <input type="hidden" name="ageMin" value="<%= filters.ageMin || '' %>">
+            <input type="hidden" name="ageMax" value="<%= filters.ageMax || '' %>">
+            <button type="submit" class="btn btn-round btn-pass" aria-label="Passer">✖️</button>
+          </form>
+          <form method="POST" action="/browse/like/<%= candidate.userId %>">
+            <input type="hidden" name="ville" value="<%= filters.ville %>">
+            <input type="hidden" name="langue" value="<%= filters.langue %>">
+            <input type="hidden" name="ageMin" value="<%= filters.ageMin || '' %>">
+            <input type="hidden" name="ageMax" value="<%= filters.ageMax || '' %>">
+            <button type="submit" class="btn btn-round btn-like" aria-label="J'aime">❤️</button>
+          </form>
+        </div>
+      </div>
+      <p class="remaining"><%= remaining - 1 %> autre(s) profil(s) après celui-ci</p>
+    <% } else { %>
+      <div class="empty-state">
+        <p>😕 Aucun profil disponible pour l'instant.</p>
+        <p>Reviens plus tard ou essaie d'autres filtres.</p>
+      </div>
+    <% } %>
+  </main>
+</body>
+</html>

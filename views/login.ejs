@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Connexion — Rencontre Congo' }) %>
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <div class="auth-logo">🧡💙❤️</div>
+    <h1>Rencontre Congo</h1>
+    <p class="tagline">Rencontrez des célibataires congolais près de chez vous.</p>
+
+    <% if (error) { %><div class="alert"><%= error %></div><% } %>
+
+    <form method="POST" action="/login" class="form">
+      <label>Pays
+        <select name="pays">
+          <option value="RDC">République Démocratique du Congo (+243)</option>
+          <option value="Congo-Brazzaville">République du Congo (+242)</option>
+        </select>
+      </label>
+      <label>Numéro de téléphone
+        <input type="tel" name="phone" required autocomplete="tel" placeholder="Ex : 0812 345 678">
+      </label>
+      <label>Mot de passe
+        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••">
+      </label>
+      <button type="submit" class="btn btn-primary">Se connecter</button>
+    </form>
+
+    <p class="switch">Pas encore de compte ? <a href="/register">Inscris-toi</a></p>
+  </main>
+</body>
+</html>

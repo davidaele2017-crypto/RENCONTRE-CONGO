@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Mes matchs — Rencontre Congo' }) %>
+</head>
+<body>
+  <%- include('partials/nav') %>
+  <main class="page">
+    <h1>Mes matchs</h1>
+    <% if (matches.length === 0) { %>
+      <div class="empty-state">
+        <p>Pas encore de match.</p>
+        <p><a href="/browse">Va découvrir des profils →</a></p>
+      </div>
+    <% } else { %>
+      <ul class="match-list">
+        <% matches.forEach(({match, profile, lastMessage}) => { %>
+          <li>
+            <a class="match-item" href="/chat/<%= match.id %>">
+              <div class="avatar avatar-md">
+                <% if (profile.photo) { %>
+                  <img src="/uploads/<%= profile.photo %>" alt="<%= profile.name %>">
+                <% } else { %>
+                  <span><%= profile.name.charAt(0).toUpperCase() %></span>
+                <% } %>
+              </div>
+              <div class="match-item-info">
+                <strong><%= profile.name %>, <%= profile.age %></strong>
+                <span class="location">📍 <%= profile.ville %></span>
+                <% if (lastMessage) { %>
+                  <span class="preview"><%= lastMessage.text.slice(0, 40) %></span>
+                <% } else { %>
+                  <span class="preview muted">Dites bonjour 👋</span>
+                <% } %>
+              </div>
+            </a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </main>
+</body>
+</html>
