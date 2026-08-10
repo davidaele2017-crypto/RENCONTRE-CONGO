@@ -209,6 +209,12 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 
 /* --- Chat --- */
 .chat-page { display: flex; flex-direction: column; height: 100vh; }
+/* #app-content sur la page chat : doit se comporter comme un enfant flex
+   direct de .chat-page (header/messages/formulaire empilés, messages qui
+   prennent tout l'espace restant) — nécessaire car le routeur (router.js)
+   remplace #app-content en un bloc, il faut donc que ce bloc porte lui-même
+   la mise en page flex plutôt que de compter sur .chat-page seul. */
+.chat-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .chat-window { flex: 1; overflow-y: auto; padding: 16px; max-width: 480px; width: 100%; margin: 0 auto; }
 .message-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .bubble {

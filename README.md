@@ -50,7 +50,21 @@ TURN_USERNAME=...
 TURN_CREDENTIAL=...
 ```
 
-⚠️ **Autre limite** : ce n'est pas une "single-page app" — si la personne clique sur un lien (navigue vers une autre page) pendant un appel actif, la page se recharge entièrement et l'appel est coupé. L'écran d'appel est volontairement en plein écran pour limiter ce risque, mais ce n'est pas garanti à 100%.
+Grâce à la navigation SPA (voir ci-dessous), un appel en cours **survit** à un changement de page — plus besoin de rester bloqué sur un seul écran pendant un appel.
+
+## Navigation "SPA légère" (`public/js/router.js`)
+Le site reste un site multi-pages classique côté serveur (chaque route EJS produit toujours une page HTML complète et valide — fonctionne même sans JavaScript, un lien direct ou un F5 marchent toujours). `router.js` intercepte les clics sur les liens et les envois de formulaires internes, va chercher la page cible en arrière-plan (`fetch`), puis ne remplace que `<div id="app-content">` au lieu de recharger toute la page.
+
+Pourquoi cette approche plutôt qu'une réécriture complète en React/Vue :
+- Aucun changement d'architecture serveur, aucun outil de build à maintenir — plus simple à reprendre pour quelqu'un qui découvre le projet
+- Fonctionne en dégradé gracieux si JS est indisponible (chaque page reste une vraie page)
+- Résout le vrai problème (les appels coupés en changeant de page) sans le risque d'une réécriture complète
+
+Points d'attention si tu ajoutes une nouvelle page :
+- Le contenu propre à la page doit être dans `<div id="app-content">` (ou `<main id="app-content">`) — c'est la seule zone que le routeur remplace
+- `<body data-logged-in="...">` doit refléter `currentUserId` — c'est ce qui permet au routeur de savoir s'il faut couper une connexion d'appel après une navigation (ex: après déconnexion)
+- Un formulaire qui peut rediriger vers un autre site (ex: paiement CinetPay) doit avoir l'attribut `data-full-reload` pour ne pas être intercepté
+- Un script de page qui doit être nettoyé en quittant la page (ex: un `setInterval`) doit s'enregistrer via `window.__pageCleanup = () => { ... }` (voir `public/js/chat.js`)
 
 ## Déploiement (Render)
 Le dépôt contient un `render.yaml` prêt à l'emploi :

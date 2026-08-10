@@ -37,7 +37,11 @@
     } catch (e) { /* silencieux */ }
   }
 
-  setInterval(poll, 3000);
+  const intervalId = setInterval(poll, 3000);
+  // Avec la navigation SPA (router.js), cette page peut être remplacée sans
+  // rechargement complet — sans ça, l'intervalle continuerait de tourner
+  // indéfiniment en arrière-plan pour un chat qu'on ne regarde plus.
+  window.__pageCleanup = () => clearInterval(intervalId);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -1,11 +1,18 @@
 // Gestion des appels vocaux/vidéo (WebRTC) — chargé sur toutes les pages
 // connectées pour pouvoir recevoir un appel entrant à tout moment.
 //
-// ⚠️ Limite connue : ce site n'est pas une "single-page app" — si tu navigues
-// vers une autre page (clic sur un lien) pendant un appel, la page se recharge
-// entièrement et l'appel est coupé. L'écran d'appel est donc volontairement en
-// plein écran, pour éviter d'avoir à cliquer ailleurs pendant un appel.
+// Ce <script> est réinséré à chaque navigation "SPA" (voir public/js/router.js,
+// qui ré-exécute les <script> présents dans le contenu remplacé, puisque
+// nav.ejs — qui inclut ce fichier — fait partie du contenu rafraîchi à chaque
+// page). On se protège donc avec un verrou global : la vraie connexion
+// WebSocket et l'écran d'appel (ajoutés directement à <body>, donc jamais
+// détruits par un changement de page) ne sont créés qu'une seule fois et
+// survivent à la navigation — c'est ce qui permet à un appel de continuer
+// même en changeant de page.
 (function () {
+  if (window.__RC_CALLS_READY) return;
+  window.__RC_CALLS_READY = true;
+
   let ws = null;
   let pc = null;
   let localStream = null;
@@ -77,7 +84,10 @@
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       ws = new WebSocket(`${proto}://${location.host}/call/socket?token=${encodeURIComponent(token)}`);
       ws.addEventListener('message', (e) => handleMessage(JSON.parse(e.data)));
-      ws.addEventListener('close', () => { ws = null; setTimeout(connectSocket, 3000); });
+      ws.addEventListener('close', () => {
+        ws = null;
+        if (window.__RC_CALLS_READY) setTimeout(connectSocket, 3000); // pas de reconnexion après un teardown volontaire
+      });
       ws.addEventListener('error', () => { try { ws.close(); } catch (e) {} });
     }).catch(() => setTimeout(connectSocket, 5000));
   }
@@ -255,6 +265,18 @@
         break;
     }
   }
+
+  // Appelé par router.js après une navigation qui atterrit sur une page où
+  // l'utilisateur n'est plus connecté (ex: après /logout) — coupe proprement
+  // la connexion au lieu de la laisser essayer de se reconnecter indéfiniment.
+  window.__RC_CALLS_TEARDOWN = function () {
+    cleanupCall();
+    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+    ui.remove();
+    window.__RC_CALLS_READY = false;
+    delete window.__RC_CALLS_TEARDOWN;
+    delete window.startCall;
+  };
 
   connectSocket();
 })();

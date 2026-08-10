@@ -3,7 +3,8 @@
 <head>
   <%- include('partials/head', { title: 'Nos packs — Rencontre Congo' }) %>
 </head>
-<body>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
   <%- include('partials/nav') %>
   <main class="page">
     <h1>Choisis ton pack</h1>
@@ -41,7 +42,7 @@
           <% if (isCurrent) { %>
             <button class="btn btn-outline" disabled>Pack actuel</button>
           <% } else { %>
-            <form method="POST" action="/premium/choisir">
+            <form method="POST" action="/premium/choisir" data-full-reload>
               <input type="hidden" name="plan" value="<%= planId %>">
               <button type="submit" class="btn <%= planId === 'gratuit' ? 'btn-outline' : 'btn-primary' %>">
                 <%= planId === 'gratuit' ? 'Repasser en Standard' : 'Choisir ce pack' %>
@@ -52,5 +53,6 @@
       <% }) %>
     </div>
   </main>
+  </div>
 </body>
 </html>

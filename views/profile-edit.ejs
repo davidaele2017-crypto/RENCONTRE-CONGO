@@ -3,7 +3,8 @@
 <head>
   <%- include('partials/head', { title: 'Mon profil — Rencontre Congo' }) %>
 </head>
-<body>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
   <%- include('partials/nav') %>
   <main class="page">
     <h1>Mon profil</h1>
@@ -83,5 +84,6 @@
       <button type="submit" class="btn btn-primary">Enregistrer mon profil</button>
     </form>
   </main>
+  </div>
 </body>
 </html>

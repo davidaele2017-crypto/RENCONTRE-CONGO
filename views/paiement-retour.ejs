@@ -3,8 +3,8 @@
 <head>
   <%- include('partials/head', { title: 'Paiement — Rencontre Congo' }) %>
 </head>
-<body class="auth-page">
-  <main class="auth-card">
+<body class="auth-page" data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <main class="auth-card" id="app-content">
     <% if (success) { %>
       <div class="auth-logo">🎉</div>
       <h1>Paiement confirmé !</h1>

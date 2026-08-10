@@ -3,7 +3,8 @@
 <head>
   <%- include('partials/head', { title: 'Mes matchs — Rencontre Congo' }) %>
 </head>
-<body>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
   <%- include('partials/nav') %>
   <main class="page">
     <h1>Mes matchs</h1>
@@ -39,5 +40,6 @@
       </ul>
     <% } %>
   </main>
+  </div>
 </body>
 </html>

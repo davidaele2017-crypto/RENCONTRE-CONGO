@@ -3,8 +3,8 @@
 <head>
   <%- include('partials/head', { title: 'Connexion — Rencontre Congo' }) %>
 </head>
-<body class="auth-page">
-  <main class="auth-card">
+<body class="auth-page" data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <main class="auth-card" id="app-content">
     <div class="auth-logo">🧡💙❤️</div>
     <h1>Rencontre Congo</h1>
     <p class="tagline">Rencontrez des célibataires congolais près de chez vous.</p>
