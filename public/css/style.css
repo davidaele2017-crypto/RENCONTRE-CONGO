@@ -289,3 +289,47 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 .btn-outline:disabled { opacity: .6; cursor: default; }
 .plan-card form { display: block; }
 .plan-card .btn { width: 100%; }
+
+/* --- Boutons d'appel dans l'en-tête du chat --- */
+.call-buttons { display: flex; gap: 8px; }
+.btn-small-round {
+  width: 40px; height: 40px; font-size: 1.1rem;
+  background: rgba(255,255,255,.25); border: none; color: #fff;
+}
+.call-locked {
+  color: #fff; font-size: .8rem; font-weight: 700;
+  background: rgba(255,255,255,.2); padding: 8px 12px; border-radius: 999px;
+}
+
+/* --- Bannière d'appel entrant --- */
+.call-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--ink); color: #fff;
+  padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+.call-banner-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.call-banner .btn-round { width: 44px; height: 44px; font-size: 1.2rem; }
+
+/* --- Écran d'appel plein écran --- */
+.call-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: #12100e; color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.call-status { position: absolute; top: 24px; font-size: .95rem; opacity: .85; }
+.remote-video {
+  width: 100%; height: 100%; object-fit: cover; background: #1c1a17;
+}
+.local-video {
+  position: absolute; bottom: 110px; right: 18px;
+  width: 110px; height: 150px; object-fit: cover;
+  border-radius: 14px; border: 2px solid rgba(255,255,255,.3);
+  background: #1c1a17;
+}
+.call-controls {
+  position: absolute; bottom: 30px; display: flex; gap: 24px;
+}
+.call-controls .btn-round { width: 64px; height: 64px; font-size: 1.5rem; background: rgba(255,255,255,.15); color: #fff; border: none; }
+.call-controls .btn-pass { background: var(--red); }
+.plan-card .btn { width: 100%; }

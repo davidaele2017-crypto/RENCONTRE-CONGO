@@ -15,6 +15,9 @@ const { hashPassword, verifyPassword } = require('./lib/password');
 const store = require('./lib/store');
 const plans = require('./lib/plans');
 const cinetpay = require('./lib/cinetpay');
+const callAuth = require('./lib/callAuth');
+const iceServers = require('./lib/iceServers');
+const { attachSignaling } = require('./lib/signaling');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -449,7 +452,8 @@ app.get('/chat/:matchId', requireAuth, requireProfile, (req, res) => {
   const otherId = store.otherUserInMatch(match, req.session.userId);
   const profile = store.getProfile(data, otherId);
   const messages = store.getMessages(data, match.id);
-  res.render('chat', { match, profile, messages, meId: req.session.userId });
+  const me = store.getUserById(data, req.session.userId);
+  res.render('chat', { match, profile, messages, meId: req.session.userId, canCall: plans.getUserPlan(me).calls });
 });
 
 app.get('/chat/:matchId/messages.json', requireAuth, (req, res) => {
@@ -473,6 +477,20 @@ app.post('/chat/:matchId/send', requireAuth, (req, res) => {
   res.json({ ok: true, message: { id: msg.id, text: msg.text, createdAt: msg.createdAt, mine: true } });
 });
 
-app.listen(PORT, () => {
+// --- Appels vocaux/vidéo (Premium/VIP) --------------------------------------
+// Jeton de courte durée pour ouvrir la connexion WebSocket de signalisation
+// (voir lib/callAuth.js et lib/signaling.js).
+app.get('/call/token', requireAuth, (req, res) => {
+  res.json({ token: callAuth.createToken(req.session.userId) });
+});
+
+app.get('/call/ice-servers', requireAuth, (req, res) => {
+  res.json({ iceServers: iceServers.getIceServers() });
+});
+
+const httpServer = require('http').createServer(app);
+attachSignaling(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`💛💙❤️  Rencontre Congo — http://localhost:${PORT}`);
 });
