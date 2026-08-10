@@ -1,16 +1,20 @@
 <header class="topbar">
-  <a class="brand" href="/browse">🧡 Rencontre<span>Congo</span></a>
+  <div class="topbar-row">
+    <a class="brand" href="/browse">🧡 Rencontre<span>Congo</span></a>
+    <% if (currentUserId) { %>
+      <a href="/premium" class="plan-pill plan-pill-<%= currentPlan ? currentPlan.id : 'gratuit' %>">
+        <% if (currentPlan && currentPlan.id === 'vip') { %>👑 VIP
+        <% } else if (currentPlan && currentPlan.id === 'premium') { %>✨ Premium
+        <% } else { %>💎 Premium<% } %>
+      </a>
+    <% } %>
+  </div>
   <% if (currentUserId) { %>
   <nav class="tabs">
     <a href="/browse">Découvrir</a>
     <a href="/liked-me">Qui m'a liké<% if (typeof likedMeCount !== 'undefined' && likedMeCount > 0) { %> (<%= likedMeCount %>)<% } %></a>
     <a href="/matches">Mes matchs</a>
     <a href="/profile/edit">Profil</a>
-    <a href="/premium" class="plan-pill plan-pill-<%= currentPlan ? currentPlan.id : 'gratuit' %>">
-      <% if (currentPlan && currentPlan.id === 'vip') { %>👑 VIP
-      <% } else if (currentPlan && currentPlan.id === 'premium') { %>✨ Premium
-      <% } else { %>💎 Passer Premium<% } %>
-    </a>
     <form action="/logout" method="POST" class="inline"><button class="link-btn" type="submit">Quitter</button></form>
   </nav>
   <script src="/public/js/calls.js"></script>
