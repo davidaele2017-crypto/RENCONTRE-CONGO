@@ -26,9 +26,17 @@ npm start
 Puis ouvre **http://localhost:3000** dans ton navigateur.
 
 ## Configuration (.env)
-Copie `.env.example` en `.env` et remplis les valeurs (voir les commentaires dans le fichier). Sans configuration, l'app tourne quand même en **mode démo** :
+Copie `.env.example` en `.env` et remplis les valeurs (voir les commentaires dans le fichier). `DATABASE_URL` est **obligatoire** (voir section Base de données ci-dessous). Sans le reste, l'app tourne quand même en **mode démo** :
 - Sans clés CinetPay → changer de pack est instantané et gratuit (pratique pour présenter l'app)
 - Sans `TURN_URL` → les appels utilisent uniquement des serveurs STUN gratuits (voir limite ci-dessous)
+
+## Base de données (PostgreSQL)
+Toutes les données (comptes, profils, likes, matchs, messages, commandes) sont stockées dans PostgreSQL — plus de fichier `data.json`. Ça gère correctement plusieurs personnes qui utilisent l'app en même temps (un simple fichier ne le pouvait pas de façon fiable).
+
+- Les tables sont créées automatiquement au démarrage (`lib/db.js`, fonction `initSchema()`) — pas d'outil de migration séparé à ce stade.
+- **En local** : crée une base sur [dashboard.render.com](https://dashboard.render.com) → New → PostgreSQL (ou toute autre instance Postgres), copie son "External Database URL" dans `DATABASE_URL` (`.env`).
+- **En production (Render)** : `render.yaml` déclare la base et relie automatiquement `DATABASE_URL` au service web via `fromDatabase` — rien à copier-coller à la main, et la connexion passe par le réseau privé de Render (beaucoup plus rapide qu'une connexion externe).
+- Toute la logique base de données passe par `lib/store.js` (fonctions async) — le reste du code (routes, vues) n'a pas besoin de savoir que c'est PostgreSQL.
 
 ## Paiement Mobile Money (CinetPay)
 1. Crée un compte sur [cinetpay.com](https://cinetpay.com) (KYC entreprise requis)
@@ -84,11 +92,10 @@ Fichiers concernés :
 Le dépôt contient un `render.yaml` prêt à l'emploi :
 1. [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint** → connecte ce dépôt GitHub
 2. Renseigne `APP_BASE_URL` (l'URL que Render te donne) et les clés CinetPay dans son dashboard
-3. Le disque persistant (`disk` dans `render.yaml`) évite de perdre les données à chaque redéploiement — nécessite un plan payant (~7$/mois), pas inclus dans le plan gratuit
+3. Le disque persistant (`disk` dans `render.yaml`, pour les photos) et la base PostgreSQL nécessitent un plan payant — pas inclus dans le plan gratuit
 
 ## Notes techniques
-- Stockage des données dans un simple fichier `data.json` (créé automatiquement) — pas de base de données à installer. Pointe `DATA_DIR` vers un disque persistant en production. Pour un vrai déploiement à grande échelle, il faudrait migrer vers une vraie base (PostgreSQL/MySQL/MongoDB).
-- Les photos de profil sont stockées dans `uploads/` (aussi affecté par `DATA_DIR`).
+- Les données sont dans PostgreSQL (voir section dédiée plus haut) ; les photos de profil restent des fichiers, stockés dans `uploads/` (affecté par `DATA_DIR` — pointe vers le disque persistant en production).
 - Les mots de passe sont hachés (scrypt), jamais stockés en clair.
 - Sessions en cookie signé (`express-session`) — pense à changer `SESSION_SECRET` en production (`render.yaml` en génère un automatiquement).
 - Le numéro de téléphone est normalisé (indicatif pays + numéro, ex `+243812345678`) et sert d'identifiant unique, mais **n'est pas vérifié par SMS** — n'importe qui peut saisir n'importe quel numéro. Pour une vraie vérification (code à 6 chiffres envoyé par SMS), il faudrait brancher un service comme Twilio.
@@ -99,4 +106,3 @@ Le dépôt contient un `render.yaml` prêt à l'emploi :
 - Historique des appels manqués
 - Notifications
 - Blocage / signalement de profils
-- Migration vers une vraie base de données pour la montée en charge

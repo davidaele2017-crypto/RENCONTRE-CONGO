@@ -1,8 +1,14 @@
 # Blueprint Render — permet un déploiement en un clic via "New > Blueprint"
 # sur https://dashboard.render.com en pointant sur ce dépôt GitHub.
 #
-# Plan Starter + disque persistant : les données (comptes, matchs, messages,
-# photos) survivent aux redéploiements et redémarrages du service.
+# Plan Starter + disque persistant (pour les photos) + PostgreSQL (pour tout
+# le reste : comptes, profils, matchs, messages, commandes). Les données
+# survivent aux redéploiements et redémarrages du service.
+databases:
+  - name: rencontre-congo-db
+    plan: basic-256mb
+    region: oregon
+
 services:
   - type: web
     name: rencontre-congo
@@ -18,6 +24,10 @@ services:
         generateValue: true
       - key: APP_BASE_URL
         sync: false # déjà rempli dans le dashboard avec l'URL Render réelle
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rencontre-congo-db
+          property: connectionString
       - key: DATA_DIR
         value: /data
       - key: CINETPAY_API_KEY

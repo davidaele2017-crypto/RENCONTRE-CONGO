@@ -5,7 +5,6 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const fs = require('fs');
-const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -24,12 +23,17 @@ const PORT = process.env.PORT || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const BASE_URL = (process.env.APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 
+// Express 4 ne rattrape pas automatiquement les erreurs d'un handler async —
+// ce petit utilitaire les transmet à next(err) pour éviter qu'une requête
+// reste bloquée sans réponse si une requête SQL échoue.
+const h = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
 // Nécessaire pour que les cookies "secure" fonctionnent derrière le proxy
 // inverse d'un hébergeur (Render, etc.) qui termine le HTTPS pour nous.
 if (IS_PRODUCTION) app.set('trust proxy', 1);
 
 // En production, pointe DATA_DIR vers un disque persistant pour ne pas perdre
-// les photos de profil à chaque redéploiement (voir lib/db.js pour data.json).
+// les photos de profil à chaque redéploiement.
 const uploadsDir = path.join(process.env.DATA_DIR || __dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -70,20 +74,21 @@ app.use(session({
 app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
 // Rend `currentUser` et son pack (Standard/Premium/VIP) disponibles dans toutes les vues.
-app.use((req, res, next) => {
+app.use(h(async (req, res, next) => {
   res.locals.currentUserId = req.session.userId || null;
   res.locals.currentPlan = null;
   res.locals.likedMeCount = 0;
+  req.currentUser = null;
   if (req.session.userId) {
-    const data = db.load();
-    const user = store.getUserById(data, req.session.userId);
+    const user = await store.getUserById(req.session.userId);
     if (user) {
+      req.currentUser = user; // évite de re-requêter le même utilisateur dans chaque route
       res.locals.currentPlan = plans.getUserPlan(user);
-      res.locals.likedMeCount = store.getPeopleWhoLikedMe(data, user.id).length;
+      res.locals.likedMeCount = (await store.getPeopleWhoLikedMe(user.id)).length;
     }
   }
   next();
-});
+}));
 
 // --- Upload de photo de profil ---------------------------------------
 const upload = multer({
@@ -109,14 +114,13 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function requireProfile(req, res, next) {
-  const data = db.load();
-  const profile = store.getProfile(data, req.session.userId);
+const requireProfile = h(async (req, res, next) => {
+  const profile = await store.getProfile(req.session.userId);
   if (!store.profileComplete(profile)) {
     return res.redirect('/profile/edit?besoin=1');
   }
   next();
-}
+});
 
 // --- Accueil ------------------------------------------------------------
 app.get('/', (req, res) => {
@@ -129,9 +133,8 @@ app.get('/register', (req, res) => {
   res.render('register', { error: req.query.error || null });
 });
 
-app.post('/register', (req, res) => {
+app.post('/register', h(async (req, res) => {
   const { phone, pays, password, password2 } = req.body;
-  const data = db.load();
 
   if (!phone || !password) {
     return res.redirect('/register?error=' + encodeURIComponent('Merci de remplir tous les champs.'));
@@ -147,51 +150,38 @@ app.post('/register', (req, res) => {
   if (normalizedPhone.length < 8) {
     return res.redirect('/register?error=' + encodeURIComponent('Ce numéro de téléphone ne semble pas valide.'));
   }
-  if (store.getUserByPhone(data, normalizedPhone)) {
+  if (await store.getUserByPhone(normalizedPhone)) {
     return res.redirect('/register?error=' + encodeURIComponent('Un compte existe déjà avec ce numéro.'));
   }
 
-  const user = {
-    id: db.id(),
-    phone: normalizedPhone,
-    passwordHash: hashPassword(password),
-    plan: 'gratuit',
-    likesToday: 0,
-    likesResetDate: null,
-    createdAt: Date.now()
-  };
-  data.users.push(user);
-  db.save(data);
-
+  const user = await store.createUser({ phone: normalizedPhone, passwordHash: hashPassword(password) });
   req.session.userId = user.id;
   res.redirect('/profile/edit?besoin=1');
-});
+}));
 
 app.get('/login', (req, res) => {
   if (req.session.userId) return res.redirect('/browse');
   res.render('login', { error: req.query.error || null });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', h(async (req, res) => {
   const { phone, pays, password } = req.body;
-  const data = db.load();
   const normalizedPhone = store.normalizePhone(phone, pays);
-  const user = store.getUserByPhone(data, normalizedPhone);
+  const user = await store.getUserByPhone(normalizedPhone);
   if (!user || !verifyPassword(password || '', user.passwordHash)) {
     return res.redirect('/login?error=' + encodeURIComponent('Numéro ou mot de passe incorrect.'));
   }
   req.session.userId = user.id;
   res.redirect('/browse');
-});
+}));
 
 app.post('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
 
 // --- Profil ---------------------------------------------------------------
-app.get('/profile/edit', requireAuth, (req, res) => {
-  const data = db.load();
-  const profile = store.getProfile(data, req.session.userId) || {};
+app.get('/profile/edit', requireAuth, h(async (req, res) => {
+  const profile = (await store.getProfile(req.session.userId)) || {};
   res.render('profile-edit', {
     profile,
     langues: store.LANGUES,
@@ -199,15 +189,14 @@ app.get('/profile/edit', requireAuth, (req, res) => {
     besoin: req.query.besoin === '1',
     error: req.query.error || null
   });
-});
+}));
 
 app.post('/profile/edit', requireAuth, (req, res, next) => {
   upload.single('photo')(req, res, (err) => {
     if (err) return res.redirect('/profile/edit?error=' + encodeURIComponent(err.message));
     next();
   });
-}, (req, res) => {
-  const data = db.load();
+}, h(async (req, res) => {
   const { name, age, gender, lookingFor, pays, ville, bio } = req.body;
   let langues = req.body.langues || [];
   if (!Array.isArray(langues)) langues = [langues];
@@ -230,15 +219,13 @@ app.post('/profile/edit', requireAuth, (req, res, next) => {
     fields.photo = req.file.filename;
   }
 
-  store.upsertProfile(data, req.session.userId, fields);
-  db.save(data);
+  await store.upsertProfile(req.session.userId, fields);
   res.redirect('/browse');
-});
+}));
 
 // --- Parcourir / Liker ------------------------------------------------------
-app.get('/browse', requireAuth, requireProfile, (req, res) => {
-  const data = db.load();
-  const user = store.getUserById(data, req.session.userId);
+app.get('/browse', requireAuth, requireProfile, h(async (req, res) => {
+  const user = req.currentUser;
   const plan = plans.getUserPlan(user);
 
   const filters = { ville: req.query.ville || '', langue: req.query.langue || '' };
@@ -249,11 +236,13 @@ app.get('/browse', requireAuth, requireProfile, (req, res) => {
     if (req.query.ageMax) filters.ageMax = parseInt(req.query.ageMax, 10) || undefined;
   }
 
-  const candidates = store.getCandidates(data, req.session.userId, filters);
+  const candidates = await store.getCandidates(req.session.userId, filters);
   const candidate = candidates[0] || null;
-  const candidateIsVip = candidate
-    ? plans.getUserPlan(store.getUserById(data, candidate.userId)).boost
-    : false;
+  let candidateIsVip = false;
+  if (candidate) {
+    const candidateUser = await store.getUserById(candidate.userId);
+    candidateIsVip = plans.getUserPlan(candidateUser).boost;
+  }
 
   res.render('browse', {
     candidate,
@@ -267,11 +256,10 @@ app.get('/browse', requireAuth, requireProfile, (req, res) => {
     remainingLikes: store.remainingLikesToday(user),
     plan
   });
-});
+}));
 
-app.post('/browse/like/:targetId', requireAuth, requireProfile, (req, res) => {
-  const data = db.load();
-  const user = store.getUserById(data, req.session.userId);
+app.post('/browse/like/:targetId', requireAuth, requireProfile, h(async (req, res) => {
+  const user = req.currentUser;
   const qs = new URLSearchParams({ ville: req.body.ville || '', langue: req.body.langue || '' });
   if (req.body.ageMin) qs.set('ageMin', req.body.ageMin);
   if (req.body.ageMax) qs.set('ageMax', req.body.ageMax);
@@ -281,46 +269,41 @@ app.post('/browse/like/:targetId', requireAuth, requireProfile, (req, res) => {
     return res.redirect('/browse?' + qs.toString());
   }
 
-  const target = store.getUserById(data, req.params.targetId);
+  const target = await store.getUserById(req.params.targetId);
   if (!target) return res.redirect('/browse?' + qs.toString());
 
-  const { matched } = store.addLike(data, req.session.userId, target.id);
-  store.consumeLike(user);
-  db.save(data);
+  const { matched } = await store.addLike(req.session.userId, target.id);
+  await store.consumeLike(user.id);
 
   if (matched) {
-    const targetProfile = store.getProfile(data, target.id);
+    const targetProfile = await store.getProfile(target.id);
     qs.set('matched', targetProfile ? targetProfile.name : '');
   }
   res.redirect('/browse?' + qs.toString());
-});
+}));
 
-app.post('/browse/pass/:targetId', requireAuth, requireProfile, (req, res) => {
-  const data = db.load();
+app.post('/browse/pass/:targetId', requireAuth, requireProfile, h(async (req, res) => {
   const qs = new URLSearchParams({ ville: req.body.ville || '', langue: req.body.langue || '' });
   if (req.body.ageMin) qs.set('ageMin', req.body.ageMin);
   if (req.body.ageMax) qs.set('ageMax', req.body.ageMax);
-  store.addPass(data, req.session.userId, req.params.targetId);
-  db.save(data);
+  await store.addPass(req.session.userId, req.params.targetId);
   res.redirect('/browse?' + qs.toString());
-});
+}));
 
 // --- Qui m'a liké(e) — Premium/VIP -------------------------------------------
-app.get('/liked-me', requireAuth, requireProfile, (req, res) => {
-  const data = db.load();
-  const user = store.getUserById(data, req.session.userId);
+app.get('/liked-me', requireAuth, requireProfile, h(async (req, res) => {
+  const user = req.currentUser;
   const plan = plans.getUserPlan(user);
   if (!plan.seeWhoLikedYou) {
     return res.redirect('/premium?upsell=liked-me');
   }
-  const profiles = store.getPeopleWhoLikedMe(data, req.session.userId);
+  const profiles = await store.getPeopleWhoLikedMe(req.session.userId);
   res.render('liked-me', { profiles });
-});
+}));
 
 // --- Packs (Standard / Premium / VIP) -----------------------------------------
-app.get('/premium', requireAuth, (req, res) => {
-  const data = db.load();
-  const user = store.getUserById(data, req.session.userId);
+app.get('/premium', requireAuth, h(async (req, res) => {
+  const user = req.currentUser;
   res.render('premium', {
     plans: plans.PLANS,
     order: plans.PLAN_ORDER,
@@ -330,18 +313,16 @@ app.get('/premium', requireAuth, (req, res) => {
     upsell: req.query.upsell || null,
     paiementReel: cinetpay.isConfigured()
   });
-});
+}));
 
-app.post('/premium/choisir', requireAuth, (req, res) => {
-  const data = db.load();
+app.post('/premium/choisir', requireAuth, h(async (req, res) => {
   const planId = req.body.plan;
   const plan = plans.getPlan(planId);
-  const user = store.getUserById(data, req.session.userId);
+  const user = req.currentUser;
 
   // Repasser en Standard (gratuit) ne coûte rien : aucun paiement à faire.
   if (planId === 'gratuit' || plan.amount === 0) {
-    store.setPlan(data, req.session.userId, 'gratuit');
-    db.save(data);
+    await store.setPlan(req.session.userId, 'gratuit');
     return res.redirect('/premium?success=1');
   }
 
@@ -349,15 +330,12 @@ app.post('/premium/choisir', requireAuth, (req, res) => {
   // on simule l'upgrade instantanément, gratuitement, pour pouvoir présenter
   // l'app avant d'avoir un vrai compte marchand.
   if (!cinetpay.isConfigured()) {
-    store.setPlan(data, req.session.userId, planId);
-    db.save(data);
+    await store.setPlan(req.session.userId, planId);
     return res.redirect('/premium?success=1');
   }
 
-  const order = store.createOrder(data, req.session.userId, planId, plan.amount, process.env.CINETPAY_CURRENCY || 'XAF');
-  db.save(data);
-
-  const profile = store.getProfile(data, req.session.userId);
+  const order = await store.createOrder(req.session.userId, planId, plan.amount, process.env.CINETPAY_CURRENCY || 'XAF');
+  const profile = await store.getProfile(req.session.userId);
 
   cinetpay.initiatePayment({
     transactionId: order.transactionId,
@@ -373,124 +351,110 @@ app.post('/premium/choisir', requireAuth, (req, res) => {
     returnUrl: `${BASE_URL}/paiement/retour?transaction_id=${order.transactionId}`
   }).then(({ paymentUrl }) => {
     res.redirect(paymentUrl);
-  }).catch((err) => {
+  }).catch(async (err) => {
     console.error('Erreur CinetPay (initiatePayment) :', err.message);
-    const d = db.load();
-    store.markOrderStatus(d, order.transactionId, 'failed');
-    db.save(d);
+    await store.markOrderStatus(order.transactionId, 'failed');
     res.redirect('/premium?echec=1');
   });
-});
+}));
 
 // Le client revient ici après avoir payé (ou annulé) sur la page CinetPay.
-app.get('/paiement/retour', requireAuth, (req, res) => {
+app.get('/paiement/retour', requireAuth, h(async (req, res) => {
   const transactionId = req.query.transaction_id;
   if (!transactionId) return res.redirect('/premium');
 
-  const data = db.load();
-  const order = store.getOrderByTransactionId(data, transactionId);
+  const order = await store.getOrderByTransactionId(transactionId);
   if (!order || order.userId !== req.session.userId) return res.redirect('/premium');
 
   if (order.status === 'completed') {
     return res.render('paiement-retour', { success: true, plan: plans.getPlan(order.planId) });
   }
 
-  cinetpay.checkPaymentStatus(transactionId).then((result) => {
-    const d = db.load();
+  cinetpay.checkPaymentStatus(transactionId).then(async (result) => {
     if (result.accepted) {
-      store.setPlan(d, order.userId, order.planId);
-      store.markOrderStatus(d, transactionId, 'completed');
-      db.save(d);
+      await store.setPlan(order.userId, order.planId);
+      await store.markOrderStatus(transactionId, 'completed');
       return res.render('paiement-retour', { success: true, plan: plans.getPlan(order.planId) });
     }
-    store.markOrderStatus(d, transactionId, 'failed');
-    db.save(d);
+    await store.markOrderStatus(transactionId, 'failed');
     res.render('paiement-retour', { success: false, plan: plans.getPlan(order.planId) });
   }).catch((err) => {
     console.error('Erreur CinetPay (checkPaymentStatus) :', err.message);
     res.render('paiement-retour', { success: false, plan: plans.getPlan(order.planId) });
   });
-});
+}));
 
 // Notification serveur-à-serveur envoyée par CinetPay une fois le paiement
 // traité (peut arriver avant OU après que le client revienne sur /paiement/retour).
 // On ne fait jamais confiance au contenu du webhook : on revérifie toujours
 // le statut réel via l'API CinetPay avant de créditer un compte.
-app.post('/paiement/notifier', (req, res) => {
+app.post('/paiement/notifier', h(async (req, res) => {
   const transactionId = req.body.cpm_trans_id || req.body.transaction_id;
   if (!transactionId) return res.sendStatus(400);
 
-  const data = db.load();
-  const order = store.getOrderByTransactionId(data, transactionId);
+  const order = await store.getOrderByTransactionId(transactionId);
   if (!order) return res.sendStatus(404);
 
-  cinetpay.checkPaymentStatus(transactionId).then((result) => {
-    const d = db.load();
-    store.markOrderStatus(d, transactionId, result.accepted ? 'completed' : 'failed');
-    if (result.accepted) store.setPlan(d, order.userId, order.planId);
-    db.save(d);
+  cinetpay.checkPaymentStatus(transactionId).then(async (result) => {
+    await store.markOrderStatus(transactionId, result.accepted ? 'completed' : 'failed');
+    if (result.accepted) await store.setPlan(order.userId, order.planId);
     res.sendStatus(200);
   }).catch((err) => {
     console.error('Erreur CinetPay (webhook) :', err.message);
     res.sendStatus(500);
   });
-});
+}));
 
 // --- Matchs -----------------------------------------------------------------
-app.get('/matches', requireAuth, requireProfile, (req, res) => {
-  const data = db.load();
-  const matches = store.getMatchesForUser(data, req.session.userId)
-    .map(m => {
-      const otherId = store.otherUserInMatch(m, req.session.userId);
-      const profile = store.getProfile(data, otherId);
-      const msgs = store.getMessages(data, m.id);
-      return { match: m, profile, lastMessage: msgs[msgs.length - 1] || null };
-    })
-    .filter(x => x.profile)
-    .sort((a, b) => b.match.createdAt - a.match.createdAt);
+app.get('/matches', requireAuth, requireProfile, h(async (req, res) => {
+  const rawMatches = await store.getMatchesForUser(req.session.userId);
+  const matches = [];
+  for (const m of rawMatches) {
+    const otherId = store.otherUserInMatch(m, req.session.userId);
+    const profile = await store.getProfile(otherId);
+    if (!profile) continue;
+    const msgs = await store.getMessages(m.id);
+    matches.push({ match: m, profile, lastMessage: msgs[msgs.length - 1] || null });
+  }
   res.render('matches', { matches });
-});
+}));
 
 // --- Chat ---------------------------------------------------------------------
-function loadMatchOr404(req, res, data) {
-  const match = data.matches.find(m => m.id === req.params.matchId);
+async function loadMatchOr404(req, res) {
+  const match = await store.getMatchById(req.params.matchId);
   if (!match || !store.isUserInMatch(match, req.session.userId)) {
     return null;
   }
   return match;
 }
 
-app.get('/chat/:matchId', requireAuth, requireProfile, (req, res) => {
-  const data = db.load();
-  const match = loadMatchOr404(req, res, data);
+app.get('/chat/:matchId', requireAuth, requireProfile, h(async (req, res) => {
+  const match = await loadMatchOr404(req, res);
   if (!match) return res.status(404).send('Match introuvable.');
   const otherId = store.otherUserInMatch(match, req.session.userId);
-  const profile = store.getProfile(data, otherId);
-  const messages = store.getMessages(data, match.id);
-  const me = store.getUserById(data, req.session.userId);
-  res.render('chat', { match, profile, messages, meId: req.session.userId, canCall: plans.getUserPlan(me).calls });
-});
+  const profile = await store.getProfile(otherId);
+  const messages = await store.getMessages(match.id);
+  res.render('chat', { match, profile, messages, meId: req.session.userId, canCall: plans.getUserPlan(req.currentUser).calls });
+}));
 
-app.get('/chat/:matchId/messages.json', requireAuth, (req, res) => {
-  const data = db.load();
-  const match = loadMatchOr404(req, res, data);
+app.get('/chat/:matchId/messages.json', requireAuth, h(async (req, res) => {
+  const match = await loadMatchOr404(req, res);
   if (!match) return res.status(404).json({ error: 'not found' });
-  const messages = store.getMessages(data, match.id).map(m => ({
+  const rawMessages = await store.getMessages(match.id);
+  const messages = rawMessages.map(m => ({
     id: m.id, text: m.text, createdAt: m.createdAt, mine: m.fromUserId === req.session.userId
   }));
   res.json({ messages });
-});
+}));
 
-app.post('/chat/:matchId/send', requireAuth, (req, res) => {
-  const data = db.load();
-  const match = loadMatchOr404(req, res, data);
+app.post('/chat/:matchId/send', requireAuth, h(async (req, res) => {
+  const match = await loadMatchOr404(req, res);
   if (!match) return res.status(404).json({ error: 'not found' });
   const text = (req.body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'texte vide' });
-  const msg = store.addMessage(data, match.id, req.session.userId, text);
-  db.save(data);
+  const msg = await store.addMessage(match.id, req.session.userId, text);
   res.json({ ok: true, message: { id: msg.id, text: msg.text, createdAt: msg.createdAt, mine: true } });
-});
+}));
 
 // --- Appels vocaux/vidéo (Premium/VIP) --------------------------------------
 // Jeton de courte durée pour ouvrir la connexion WebSocket de signalisation
@@ -503,9 +467,25 @@ app.get('/call/ice-servers', requireAuth, (req, res) => {
   res.json({ iceServers: iceServers.getIceServers() });
 });
 
+// Filet de sécurité : si un handler async plante (ex: base de données
+// injoignable), on répond proprement plutôt que de laisser la requête
+// pendre indéfiniment ou de faire planter le process.
+app.use((err, req, res, next) => {
+  console.error('Erreur non gérée :', err);
+  if (res.headersSent) return next(err);
+  res.status(500).send('Une erreur est survenue. Réessaie dans un instant.');
+});
+
 const httpServer = require('http').createServer(app);
 attachSignaling(httpServer);
 
-httpServer.listen(PORT, () => {
-  console.log(`💛💙❤️  Rencontre Congo — http://localhost:${PORT}`);
-});
+db.initSchema()
+  .then(() => {
+    httpServer.listen(PORT, () => {
+      console.log(`💛💙❤️  Rencontre Congo — http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Impossible d\'initialiser la base de données :', err);
+    process.exit(1);
+  });
