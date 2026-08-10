@@ -1,0 +1,17 @@
+{
+  "name": "Rencontre Congo",
+  "short_name": "RencontreCongo",
+  "description": "Application de rencontre pour la communauté congolaise (RDC & Congo-Brazzaville).",
+  "start_url": "/browse",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF8EE",
+  "theme_color": "#E1362B",
+  "lang": "fr",
+  "icons": [
+    { "src": "/public/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/public/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/public/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

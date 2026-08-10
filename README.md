@@ -11,6 +11,7 @@ Application de rencontre simple, pensée pour la communauté congolaise (RDC & C
 - **3 packs** : Standard (gratuit), Premium et VIP — voir `lib/plans.js`
 - **Paiement Mobile Money** (Orange Money, Airtel Money, M-Pesa, carte) via CinetPay — voir section dédiée
 - **Appels vocaux et vidéo** entre matchs (réservés Premium/VIP) via WebRTC
+- **Installable sur iOS et Android** (PWA) — pas besoin de passer par l'App Store ou le Play Store
 
 ## Prérequis
 - [Node.js](https://nodejs.org/) version 20 ou plus récente (télécharge la version "LTS")
@@ -65,6 +66,19 @@ Points d'attention si tu ajoutes une nouvelle page :
 - `<body data-logged-in="...">` doit refléter `currentUserId` — c'est ce qui permet au routeur de savoir s'il faut couper une connexion d'appel après une navigation (ex: après déconnexion)
 - Un formulaire qui peut rediriger vers un autre site (ex: paiement CinetPay) doit avoir l'attribut `data-full-reload` pour ne pas être intercepté
 - Un script de page qui doit être nettoyé en quittant la page (ex: un `setInterval`) doit s'enregistrer via `window.__pageCleanup = () => { ... }` (voir `public/js/chat.js`)
+
+## Version mobile (PWA — installable sur iOS et Android)
+Pas d'app native, pas d'App Store/Play Store, pas de compte développeur à créer : l'app se transforme en icône sur l'écran d'accueil via "Ajouter à l'écran d'accueil" du navigateur.
+
+**Sur iPhone (Safari)** : ouvrir le site → bouton Partager (carré avec flèche) → "Sur l'écran d'accueil".
+**Sur Android (Chrome)** : ouvrir le site → menu ⋮ → "Ajouter à l'écran d'accueil" (ou bannière d'installation automatique).
+
+Fichiers concernés :
+- `public/manifest.json` — nom, icônes, couleur du thème
+- `public/service-worker.js` — rend l'app installable et affiche `public/offline.html` en cas de coupure réseau (met en cache uniquement les fichiers statiques CSS/JS/icônes, jamais les données dynamiques comme les messages ou profils)
+- `public/icons/` — icônes générées en plusieurs tailles (192, 512, 512 maskable pour Android, 180 pour iOS)
+
+⚠️ **Différence avec une vraie app store** : pas de fiche App Store/Play Store, pas de notifications push natives, découverte uniquement via lien direct (à partager toi-même). Si un jour tu veux une vraie présence sur les stores, il faudra un compte Apple Developer (99$/an) et Google Play (25$), un Mac pour compiler la version iOS, et passer par la revue d'Apple/Google — un chantier à part.
 
 ## Déploiement (Render)
 Le dépôt contient un `render.yaml` prêt à l'emploi :

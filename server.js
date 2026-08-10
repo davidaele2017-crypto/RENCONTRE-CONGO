@@ -41,6 +41,21 @@ app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadsDir));
 
+// Le manifeste et le service worker doivent être servis depuis la racine
+// (pas /public/...) pour que le service worker contrôle tout le site —
+// sa "portée" par défaut est le dossier depuis lequel il est chargé.
+app.get('/manifest.json', (req, res) => {
+  res.type('application/manifest+json');
+  res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
+});
+app.get('/service-worker.js', (req, res) => {
+  res.type('application/javascript');
+  res.sendFile(path.join(__dirname, 'public', 'service-worker.js'));
+});
+app.get('/offline.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'offline.html'));
+});
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'congo-rencontre-secret-dev',
   resave: false,
