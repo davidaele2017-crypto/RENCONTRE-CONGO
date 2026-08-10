@@ -27,10 +27,15 @@
       <label>Confirmer le mot de passe
         <input type="password" name="password2" required minlength="6" autocomplete="new-password">
       </label>
+      <label class="checkbox-line">
+        <input type="checkbox" name="accept" value="1" required>
+        <span>J'ai 18 ans ou plus et j'accepte les <a href="/cgu" target="_blank">Conditions Générales d'Utilisation</a> et la <a href="/confidentialite" target="_blank">Politique de Confidentialité</a>.</span>
+      </label>
       <button type="submit" class="btn btn-primary">S'inscrire</button>
     </form>
 
     <p class="switch">Déjà inscrit ? <a href="/login">Connecte-toi</a></p>
+    <p class="legal-links"><a href="/cgu">CGU</a> · <a href="/confidentialite">Confidentialité</a></p>
   </main>
 </body>
 </html>

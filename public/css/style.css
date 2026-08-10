@@ -367,4 +367,22 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 }
 .call-controls .btn-round { width: 64px; height: 64px; font-size: 1.5rem; background: rgba(255,255,255,.15); color: #fff; border: none; }
 .call-controls .btn-pass { background: var(--red); }
+
+/* --- Pages légales (CGU / Confidentialité) --- */
+.legal-page { max-width: 680px; }
+.legal-page h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+.legal-page p, .legal-page li { font-size: .92rem; line-height: 1.6; color: var(--ink); }
+.legal-page ul { padding-left: 20px; margin: 8px 0; }
+.legal-updated { color: var(--muted); font-size: .85rem; margin: -6px 0 18px; }
+.legal-disclaimer {
+  margin-top: 32px; padding: 14px 16px; border-radius: 12px;
+  background: #FFF3D6; color: #8a6300; border: 1px solid #F5DE9C; font-size: .85rem; line-height: 1.5;
+}
+.legal-links { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 14px; }
+.legal-links a { color: var(--muted); text-decoration: underline; }
+.checkbox-line {
+  display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 8px !important;
+  font-size: .82rem !important; font-weight: 500 !important; color: var(--ink) !important; line-height: 1.4;
+}
+.checkbox-line input { width: auto; margin-top: 3px; flex-shrink: 0; }
 .plan-card .btn { width: 100%; }

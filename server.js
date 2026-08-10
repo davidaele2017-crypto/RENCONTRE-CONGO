@@ -127,6 +127,10 @@ app.get('/', (req, res) => {
   res.redirect(req.session.userId ? '/browse' : '/login');
 });
 
+// --- Pages légales (publiques, pas besoin d'être connecté) --------------------
+app.get('/cgu', (req, res) => res.render('cgu'));
+app.get('/confidentialite', (req, res) => res.render('confidentialite'));
+
 // --- Inscription / Connexion --------------------------------------------
 app.get('/register', (req, res) => {
   if (req.session.userId) return res.redirect('/browse');
@@ -134,10 +138,13 @@ app.get('/register', (req, res) => {
 });
 
 app.post('/register', h(async (req, res) => {
-  const { phone, pays, password, password2 } = req.body;
+  const { phone, pays, password, password2, accept } = req.body;
 
   if (!phone || !password) {
     return res.redirect('/register?error=' + encodeURIComponent('Merci de remplir tous les champs.'));
+  }
+  if (!accept) {
+    return res.redirect('/register?error=' + encodeURIComponent('Tu dois accepter les CGU et la politique de confidentialité pour t\'inscrire.'));
   }
   if (password.length < 6) {
     return res.redirect('/register?error=' + encodeURIComponent('Le mot de passe doit faire au moins 6 caractères.'));

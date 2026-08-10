@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Politique de Confidentialité — Rencontre Congo' }) %>
+</head>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
+  <%- include('partials/nav') %>
+  <main class="page legal-page">
+    <h1>Politique de Confidentialité</h1>
+    <p class="legal-updated">Dernière mise à jour : 10 août 2026</p>
+
+    <p>Cette politique explique quelles données personnelles nous collectons via l'application « Rencontre Congo », pourquoi, comment elles sont protégées, et quels sont vos droits. Elle est éditée par <strong>Puela Invest</strong>, joignable à <a href="mailto:contact@puelainvestment.com">contact@puelainvestment.com</a>.</p>
+
+    <h2>1. Données que nous collectons</h2>
+    <ul>
+      <li><strong>Compte :</strong> numéro de téléphone, mot de passe (jamais stocké en clair — voir section 4).</li>
+      <li><strong>Profil :</strong> prénom/pseudo, âge, genre, ville, pays, langues parlées, biographie, photo de profil (facultative).</li>
+      <li><strong>Activité :</strong> likes, passes, matchs, messages échangés avec vos matchs.</li>
+      <li><strong>Paiement :</strong> lorsque vous souscrivez un pack payant, le prestataire de paiement (CinetPay) traite vos informations de paiement directement — nous ne recevons et ne stockons que la confirmation de la transaction (montant, statut, référence), jamais vos identifiants ou codes secrets de paiement.</li>
+      <li><strong>Appels :</strong> les appels vocaux/vidéo entre matchs passent en connexion directe entre les deux téléphones/navigateurs (technologie WebRTC) — le contenu de l'appel (son, image) ne transite jamais par nos serveurs et n'est ni stocké ni enregistré.</li>
+      <li><strong>Technique :</strong> une session de connexion (cookie), nécessaire au fonctionnement du Service (rester connecté).</li>
+    </ul>
+
+    <h2>2. Pourquoi nous utilisons ces données</h2>
+    <ul>
+      <li>Créer et faire fonctionner votre compte et votre profil ;</li>
+      <li>Vous proposer des profils compatibles et permettre les mises en relation (matchs, messagerie, appels) ;</li>
+      <li>Traiter les paiements de packs payants ;</li>
+      <li>Assurer la sécurité du Service et prévenir les abus ;</li>
+      <li>Répondre à vos demandes de support.</li>
+    </ul>
+    <p>Nous n'utilisons pas vos données à des fins de publicité ciblée et ne les vendons à aucun tiers.</p>
+
+    <h2>3. Où sont hébergées vos données</h2>
+    <p>Les données sont hébergées chez notre prestataire d'hébergement (Render), sur des serveurs situés aux États-Unis. Cela implique un transfert de vos données personnelles hors de la République Démocratique du Congo et de la République du Congo. Nous veillons à ce que ce prestataire applique des mesures de sécurité appropriées (chiffrement des connexions, accès restreint).</p>
+
+    <h2>4. Sécurité</h2>
+    <ul>
+      <li>Les mots de passe sont hachés (fonction cryptographique à sens unique, scrypt) — nous ne pouvons pas les consulter en clair, même en interne.</li>
+      <li>Les échanges entre votre appareil et nos serveurs sont chiffrés (HTTPS).</li>
+      <li>L'accès à la base de données est limité et protégé par mot de passe.</li>
+    </ul>
+    <p>Aucun système n'est infaillible ; en cas d'incident de sécurité affectant vos données, nous nous engageons à vous en informer dans les meilleurs délais.</p>
+
+    <h2>5. Partage avec des tiers</h2>
+    <p>Vos données ne sont partagées qu'avec les prestataires strictement nécessaires au fonctionnement du Service :</p>
+    <ul>
+      <li><strong>CinetPay</strong> (traitement des paiements Mobile Money / carte) ;</li>
+      <li><strong>Render</strong> (hébergement technique de l'application et de la base de données).</li>
+    </ul>
+    <p>Ces prestataires n'ont accès qu'aux données nécessaires à leur mission et n'ont pas le droit de les utiliser à d'autres fins.</p>
+    <p>Nous pouvons également divulguer des données si la loi nous y oblige, ou pour protéger nos droits, notre sécurité ou celle d'autrui.</p>
+
+    <h2>6. Durée de conservation</h2>
+    <p>Vos données sont conservées tant que votre compte est actif. En cas de suppression de compte, vos données sont supprimées dans un délai raisonnable, sauf obligation légale de conservation plus longue (ex : données de transaction de paiement).</p>
+
+    <h2>7. Vos droits</h2>
+    <p>Vous pouvez à tout moment :</p>
+    <ul>
+      <li>accéder aux données de votre profil directement dans l'application (page « Profil ») ;</li>
+      <li>corriger vos informations de profil vous-même ;</li>
+      <li>demander la suppression de votre compte et de vos données ;</li>
+      <li>demander une copie des données vous concernant.</li>
+    </ul>
+    <p>Pour exercer ces droits, écrivez à <a href="mailto:contact@puelainvestment.com">contact@puelainvestment.com</a>. Nous répondrons dans un délai raisonnable.</p>
+
+    <h2>8. Cookies</h2>
+    <p>Le Service utilise uniquement un cookie de session, strictement nécessaire pour vous garder connecté. Nous n'utilisons aucun cookie publicitaire ou de suivi tiers.</p>
+
+    <h2>9. Mineurs</h2>
+    <p>Le Service est réservé aux personnes de 18 ans et plus. Nous ne collectons pas sciemment de données concernant des mineurs.</p>
+
+    <h2>10. Modifications</h2>
+    <p>Cette politique peut être mise à jour ; la date en haut de page indique la dernière révision. En cas de changement important, nous vous en informerons via l'application.</p>
+
+    <h2>11. Contact</h2>
+    <p>Pour toute question sur cette politique ou vos données personnelles : <a href="mailto:contact@puelainvestment.com">contact@puelainvestment.com</a>.</p>
+
+    <div class="legal-disclaimer">
+      ⚠️ Ce document a été rédigé avec l'assistance d'une IA à partir du fonctionnement réel de l'application. Il doit être relu et validé par un professionnel du droit (idéalement basé en RDC/Congo-Brazzaville) avant d'être considéré comme définitif.
+    </div>
+  </main>
+  </div>
+</body>
+</html>
