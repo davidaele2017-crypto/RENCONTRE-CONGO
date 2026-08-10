@@ -1,4 +1,9 @@
 const path = require('path');
+// Charge .env depuis le dossier du projet, peu importe le dossier depuis lequel
+// le process est lancé (important quand un outil externe démarre le serveur
+// avec un autre dossier courant).
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
 const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
@@ -9,9 +14,21 @@ const db = require('./lib/db');
 const { hashPassword, verifyPassword } = require('./lib/password');
 const store = require('./lib/store');
 const plans = require('./lib/plans');
+const cinetpay = require('./lib/cinetpay');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const BASE_URL = (process.env.APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+
+// Nécessaire pour que les cookies "secure" fonctionnent derrière le proxy
+// inverse d'un hébergeur (Render, etc.) qui termine le HTTPS pour nous.
+if (IS_PRODUCTION) app.set('trust proxy', 1);
+
+// En production, pointe DATA_DIR vers un disque persistant pour ne pas perdre
+// les photos de profil à chaque redéploiement (voir lib/db.js pour data.json).
+const uploadsDir = path.join(process.env.DATA_DIR || __dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // --- Config générale -------------------------------------------------
 app.set('view engine', 'ejs');
@@ -19,14 +36,20 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(uploadsDir));
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'congo-rencontre-secret-dev',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 jours
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 jours
+    secure: IS_PRODUCTION, // cookie envoyé uniquement en HTTPS en production
+  }
 }));
+
+// Vérification de vie pour l'hébergeur (Render ping cette route).
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
 // Rend `currentUser` et son pack (Standard/Premium/VIP) disponibles dans toutes les vues.
 app.use((req, res, next) => {
@@ -45,9 +68,6 @@ app.use((req, res, next) => {
 });
 
 // --- Upload de photo de profil ---------------------------------------
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadsDir),
@@ -288,20 +308,114 @@ app.get('/premium', requireAuth, (req, res) => {
     order: plans.PLAN_ORDER,
     currentPlanId: (user && user.plan) || 'gratuit',
     success: req.query.success === '1',
-    upsell: req.query.upsell || null
+    echec: req.query.echec === '1',
+    upsell: req.query.upsell || null,
+    paiementReel: cinetpay.isConfigured()
   });
 });
 
-// ⚠️ Démo uniquement : le pack change instantanément, sans paiement réel.
-// Pour brancher un vrai paiement (Mobile Money / Stripe), il faudrait ici :
-// 1) rediriger vers le fournisseur de paiement avec le montant du pack choisi,
-// 2) attendre sa confirmation (webhook ou callback),
-// 3) n'appeler store.setPlan(...) qu'après cette confirmation.
 app.post('/premium/choisir', requireAuth, (req, res) => {
   const data = db.load();
-  store.setPlan(data, req.session.userId, req.body.plan);
+  const planId = req.body.plan;
+  const plan = plans.getPlan(planId);
+  const user = store.getUserById(data, req.session.userId);
+
+  // Repasser en Standard (gratuit) ne coûte rien : aucun paiement à faire.
+  if (planId === 'gratuit' || plan.amount === 0) {
+    store.setPlan(data, req.session.userId, 'gratuit');
+    db.save(data);
+    return res.redirect('/premium?success=1');
+  }
+
+  // Pas de compte CinetPay configuré (CINETPAY_API_KEY manquant) → mode démo :
+  // on simule l'upgrade instantanément, gratuitement, pour pouvoir présenter
+  // l'app avant d'avoir un vrai compte marchand.
+  if (!cinetpay.isConfigured()) {
+    store.setPlan(data, req.session.userId, planId);
+    db.save(data);
+    return res.redirect('/premium?success=1');
+  }
+
+  const order = store.createOrder(data, req.session.userId, planId, plan.amount, process.env.CINETPAY_CURRENCY || 'XAF');
   db.save(data);
-  res.redirect('/premium?success=1');
+
+  const profile = store.getProfile(data, req.session.userId);
+
+  cinetpay.initiatePayment({
+    transactionId: order.transactionId,
+    amount: order.amount,
+    currency: order.currency,
+    description: `Pack ${plan.name} — Rencontre Congo`,
+    customer: {
+      name: profile ? profile.name : 'Client',
+      phone: user.phone,
+      countryCode: (user.phone || '').startsWith('+242') ? 'CG' : 'CD'
+    },
+    notifyUrl: `${BASE_URL}/paiement/notifier`,
+    returnUrl: `${BASE_URL}/paiement/retour?transaction_id=${order.transactionId}`
+  }).then(({ paymentUrl }) => {
+    res.redirect(paymentUrl);
+  }).catch((err) => {
+    console.error('Erreur CinetPay (initiatePayment) :', err.message);
+    const d = db.load();
+    store.markOrderStatus(d, order.transactionId, 'failed');
+    db.save(d);
+    res.redirect('/premium?echec=1');
+  });
+});
+
+// Le client revient ici après avoir payé (ou annulé) sur la page CinetPay.
+app.get('/paiement/retour', requireAuth, (req, res) => {
+  const transactionId = req.query.transaction_id;
+  if (!transactionId) return res.redirect('/premium');
+
+  const data = db.load();
+  const order = store.getOrderByTransactionId(data, transactionId);
+  if (!order || order.userId !== req.session.userId) return res.redirect('/premium');
+
+  if (order.status === 'completed') {
+    return res.render('paiement-retour', { success: true, plan: plans.getPlan(order.planId) });
+  }
+
+  cinetpay.checkPaymentStatus(transactionId).then((result) => {
+    const d = db.load();
+    if (result.accepted) {
+      store.setPlan(d, order.userId, order.planId);
+      store.markOrderStatus(d, transactionId, 'completed');
+      db.save(d);
+      return res.render('paiement-retour', { success: true, plan: plans.getPlan(order.planId) });
+    }
+    store.markOrderStatus(d, transactionId, 'failed');
+    db.save(d);
+    res.render('paiement-retour', { success: false, plan: plans.getPlan(order.planId) });
+  }).catch((err) => {
+    console.error('Erreur CinetPay (checkPaymentStatus) :', err.message);
+    res.render('paiement-retour', { success: false, plan: plans.getPlan(order.planId) });
+  });
+});
+
+// Notification serveur-à-serveur envoyée par CinetPay une fois le paiement
+// traité (peut arriver avant OU après que le client revienne sur /paiement/retour).
+// On ne fait jamais confiance au contenu du webhook : on revérifie toujours
+// le statut réel via l'API CinetPay avant de créditer un compte.
+app.post('/paiement/notifier', (req, res) => {
+  const transactionId = req.body.cpm_trans_id || req.body.transaction_id;
+  if (!transactionId) return res.sendStatus(400);
+
+  const data = db.load();
+  const order = store.getOrderByTransactionId(data, transactionId);
+  if (!order) return res.sendStatus(404);
+
+  cinetpay.checkPaymentStatus(transactionId).then((result) => {
+    const d = db.load();
+    store.markOrderStatus(d, transactionId, result.accepted ? 'completed' : 'failed');
+    if (result.accepted) store.setPlan(d, order.userId, order.planId);
+    db.save(d);
+    res.sendStatus(200);
+  }).catch((err) => {
+    console.error('Erreur CinetPay (webhook) :', err.message);
+    res.sendStatus(500);
+  });
 });
 
 // --- Matchs -----------------------------------------------------------------

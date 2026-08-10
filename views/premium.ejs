@@ -12,11 +12,18 @@
     <% if (success) { %>
       <div class="alert alert-info">✅ Ton pack a été mis à jour !</div>
     <% } %>
+    <% if (echec) { %>
+      <div class="alert">😕 Le paiement n'a pas pu être lancé. Réessaie dans un instant.</div>
+    <% } %>
     <% if (upsell === 'liked-me') { %>
       <div class="alert">🔒 Voir qui t'a liké(e) est réservé aux packs Premium et VIP.</div>
     <% } %>
 
-    <p class="demo-note">⚠️ Démo : changer de pack ici est immédiat et gratuit, aucun vrai paiement n'est effectué.</p>
+    <% if (paiementReel) { %>
+      <p class="demo-note">🔒 Paiement sécurisé via CinetPay — Orange Money, Airtel Money, M-Pesa, carte bancaire.</p>
+    <% } else { %>
+      <p class="demo-note">⚠️ Démo : changer de pack ici est immédiat et gratuit, aucun vrai paiement n'est effectué (aucun compte CinetPay connecté pour l'instant).</p>
+    <% } %>
 
     <div class="plans-grid">
       <% order.forEach(planId => { const p = plans[planId]; const isCurrent = planId === currentPlanId; %>

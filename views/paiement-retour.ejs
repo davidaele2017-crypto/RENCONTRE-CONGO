@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Paiement — Rencontre Congo' }) %>
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <% if (success) { %>
+      <div class="auth-logo">🎉</div>
+      <h1>Paiement confirmé !</h1>
+      <p class="tagline">Tu es maintenant sur le pack <strong><%= plan.name %></strong>. Profite de tes nouvelles fonctionnalités !</p>
+      <a href="/browse" class="btn btn-primary" style="display:block;">Aller découvrir</a>
+    <% } else { %>
+      <div class="auth-logo">😕</div>
+      <h1>Paiement non confirmé</h1>
+      <p class="tagline">Le paiement pour le pack <strong><%= plan.name %></strong> n'a pas abouti (annulé, refusé, ou pas encore traité). Aucune somme n'a été débitée si tu n'as rien validé côté opérateur.</p>
+      <a href="/premium" class="btn btn-primary" style="display:block;">Réessayer</a>
+    <% } %>
+  </main>
+</body>
+</html>
