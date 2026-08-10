@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Signaler — Rencontre Congo' }) %>
+</head>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
+  <%- include('partials/nav') %>
+  <main class="page">
+    <h1>Signaler <%= profile.name %></h1>
+    <% if (error) { %><div class="alert"><%= error %></div><% } %>
+
+    <form method="POST" action="/signaler/<%= targetId %>" class="form">
+      <input type="hidden" name="next" value="<%= next %>">
+
+      <fieldset class="langues reasons">
+        <legend>Motif du signalement</legend>
+        <% reasons.forEach(r => { %>
+          <label class="checkbox">
+            <input type="radio" name="reason" value="<%= r.id %>" required>
+            <%= r.label %>
+          </label>
+        <% }) %>
+      </fieldset>
+
+      <label>Précisions (facultatif)
+        <textarea name="details" maxlength="1000" rows="4" placeholder="Ajoute des détails si besoin..."></textarea>
+      </label>
+
+      <label class="checkbox-line">
+        <input type="checkbox" name="bloquer" value="1" checked>
+        Bloquer aussi cette personne
+      </label>
+
+      <button type="submit" class="btn btn-primary">Envoyer le signalement</button>
+    </form>
+    <p class="switch"><a href="<%= next %>">Annuler</a></p>
+  </main>
+  </div>
+</body>
+</html>

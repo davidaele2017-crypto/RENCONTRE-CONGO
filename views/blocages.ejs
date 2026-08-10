@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Comptes bloqués — Rencontre Congo' }) %>
+</head>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
+  <%- include('partials/nav') %>
+  <main class="page">
+    <h1>Comptes bloqués</h1>
+    <% if (profiles.length === 0) { %>
+      <div class="empty-state">
+        <p>Tu n'as bloqué personne pour l'instant.</p>
+      </div>
+    <% } else { %>
+      <ul class="match-list">
+        <% profiles.forEach(profile => { %>
+          <li class="blocked-item">
+            <div class="avatar avatar-md">
+              <% if (profile.photo) { %>
+                <img src="/uploads/<%= profile.photo %>" alt="<%= profile.name %>">
+              <% } else { %>
+                <span><%= (profile.name || '?').charAt(0).toUpperCase() %></span>
+              <% } %>
+            </div>
+            <div class="match-item-info">
+              <strong><%= profile.name %></strong>
+              <% if (profile.ville) { %><span class="location">📍 <%= profile.ville %></span><% } %>
+            </div>
+            <form method="POST" action="/debloquer/<%= profile.userId %>">
+              <button type="submit" class="btn btn-small btn-outline">Débloquer</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+    <p class="switch"><a href="/profile/edit">← Retour au profil</a></p>
+  </main>
+  </div>
+</body>
+</html>

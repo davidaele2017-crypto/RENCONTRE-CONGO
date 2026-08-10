@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Bloquer — Rencontre Congo' }) %>
+</head>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
+  <%- include('partials/nav') %>
+  <main class="page confirm-page">
+    <h1>Bloquer <%= profile.name %> ?</h1>
+    <p class="confirm-text">
+      <%= profile.name %> ne pourra plus voir ton profil ni t'écrire, et disparaîtra de ta découverte, de « qui m'a liké » et de tes matchs. Tu peux annuler ce blocage à tout moment depuis <a href="/parametres/blocages">Comptes bloqués</a>.
+    </p>
+    <form method="POST" action="/bloquer/<%= targetId %>" class="form">
+      <input type="hidden" name="next" value="<%= next %>">
+      <button type="submit" class="btn btn-primary">Oui, bloquer</button>
+    </form>
+    <p class="switch"><a href="<%= next %>">Annuler</a></p>
+  </main>
+  </div>
+</body>
+</html>

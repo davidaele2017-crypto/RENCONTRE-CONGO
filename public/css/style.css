@@ -386,3 +386,40 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 }
 .checkbox-line input { width: auto; margin-top: 3px; flex-shrink: 0; }
 .plan-card .btn { width: 100%; }
+
+/* --- Signalement / blocage --- */
+.card-meta-actions {
+  text-align: center; font-size: .82rem; color: var(--muted); margin: 10px 0 0;
+}
+.card-meta-actions a { color: var(--muted); }
+.card-meta-actions a:hover { color: var(--red); text-decoration: underline; }
+.confirm-page { text-align: center; }
+.confirm-text { color: var(--muted); font-size: .92rem; line-height: 1.6; }
+.confirm-btn { display: block; text-decoration: none; }
+.reasons { grid-template-columns: 1fr !important; }
+
+/* Menu "⋮" du chat (signaler/bloquer) — <details>/<summary> natif, pas de JS. */
+.chat-header-actions { display: flex; align-items: center; gap: 8px; }
+.chat-menu { position: relative; }
+.chat-menu summary {
+  list-style: none; cursor: pointer; width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.25); color: #fff; font-size: 1.2rem; font-weight: 800;
+}
+.chat-menu summary::-webkit-details-marker { display: none; }
+.chat-menu-list {
+  position: absolute; top: 46px; right: 0; z-index: 20;
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15); overflow: hidden; min-width: 160px;
+}
+.chat-menu-list a {
+  display: block; padding: 12px 16px; color: var(--ink); font-size: .88rem; font-weight: 600;
+  white-space: nowrap;
+}
+.chat-menu-list a:hover { background: var(--bg); }
+
+.blocked-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 8px;
+}
+.blocked-item form { margin-left: auto; }
+.blocked-item .btn-small { width: auto; }

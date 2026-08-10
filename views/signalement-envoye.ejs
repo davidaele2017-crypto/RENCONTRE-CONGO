@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Signalement envoyé — Rencontre Congo' }) %>
+</head>
+<body data-logged-in="<%= currentUserId ? '1' : '' %>">
+  <div id="app-content">
+  <%- include('partials/nav') %>
+  <main class="page confirm-page">
+    <h1>Merci 🙏</h1>
+    <p class="confirm-text">Ton signalement a bien été envoyé et sera examiné.</p>
+    <a href="<%= next %>" class="btn btn-primary confirm-btn">Retour</a>
+  </main>
+  </div>
+</body>
+</html>

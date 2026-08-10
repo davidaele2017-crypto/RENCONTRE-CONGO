@@ -88,6 +88,12 @@
           </form>
         </div>
       </div>
+      <% const backUrl = '/browse?' + new URLSearchParams({ ville: filters.ville || '', langue: filters.langue || '' }).toString(); %>
+      <p class="card-meta-actions">
+        <a href="/signaler/<%= candidate.userId %>?next=<%= encodeURIComponent(backUrl) %>">🚩 Signaler</a>
+        <span aria-hidden="true">·</span>
+        <a href="/bloquer/<%= candidate.userId %>?next=<%= encodeURIComponent(backUrl) %>">🚫 Bloquer</a>
+      </p>
       <p class="remaining"><%= remaining - 1 %> autre(s) profil(s) après celui-ci</p>
     <% } else { %>
       <div class="empty-state">

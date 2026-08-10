@@ -11,6 +11,7 @@ Application de rencontre simple, pensée pour la communauté congolaise (RDC & C
 - **3 packs** : Standard (gratuit), Premium et VIP — voir `lib/plans.js`
 - **Paiement Mobile Money** (Orange Money, Airtel Money, M-Pesa, carte) via CinetPay — voir section dédiée
 - **Appels vocaux et vidéo** entre matchs (réservés Premium/VIP) via WebRTC
+- **Signalement et blocage de profils**, accessibles depuis la découverte et le chat
 - **Installable sur iOS et Android** (PWA) — pas besoin de passer par l'App Store ou le Play Store
 
 ## Prérequis
@@ -57,6 +58,14 @@ Twilio supporte officiellement l'envoi de SMS vers la RDC (+243) et le Congo-Bra
 Le flux : inscription (numéro + mot de passe) → code à 6 chiffres envoyé par SMS via Twilio Verify → saisie du code sur `/verify-phone` → le compte n'est **créé en base qu'après validation du code** (`lib/sms.js` + route `/verify-phone` dans `server.js`). Twilio gère lui-même l'expiration du code et la limite de tentatives — rien à stocker de notre côté.
 
 Sans compte Twilio configuré, l'app reste en **mode démo** : le code est généré côté serveur et affiché directement sur la page de vérification au lieu d'être envoyé par SMS.
+
+## Signalement et blocage de profils
+Accessibles depuis une carte de découverte (`/browse`) ou le menu « ⋮ » d'une conversation (`/chat/:matchId`) :
+
+- **Bloquer** (`/bloquer/:userId`) coupe tout de suite les deux sens : la personne bloquée disparaît de ta découverte, de « qui m'a liké » et de tes matchs, et inversement — même chose si c'est elle qui te bloque. Une conversation déjà commencée devient inaccessible (le match reste en base, juste caché). Réversible à tout moment depuis **Comptes bloqués** (lien en bas de la page Profil, `/parametres/blocages`).
+- **Signaler** (`/signaler/:userId`) enregistre un motif (faux profil, harcèlement, arnaque, contenu choquant, autre) + des précisions optionnelles en base (table `reports`). La case « Bloquer aussi cette personne » est cochée par défaut. Il n'y a pas encore d'interface d'administration pour consulter les signalements — ça se fait pour l'instant en interrogeant directement la table `reports` en base.
+
+Le gating est fait côté serveur à tous les niveaux (recherche de profils, chat, et jusqu'à la signalisation WebSocket des appels) — pas seulement caché dans l'interface.
 
 ## Appels vocaux et vidéo (Premium/VIP)
 Implémentés en WebRTC pur (pas de service tiers de visioconférence) :
@@ -116,4 +125,4 @@ Le dépôt contient un `render.yaml` prêt à l'emploi :
 - Serveur TURN pour fiabiliser les appels en 4G
 - Historique des appels manqués
 - Notifications
-- Blocage / signalement de profils
+- Interface d'administration pour consulter/traiter les signalements (table `reports`)

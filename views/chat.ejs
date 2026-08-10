@@ -7,14 +7,23 @@
   <div id="app-content" class="chat-shell">
     <header class="topbar">
       <a class="brand" href="/matches">← <%= profile.name %></a>
-      <% if (canCall) { %>
-        <div class="call-buttons">
-          <button type="button" class="btn btn-round btn-small-round" onclick="startCall('<%= match.id %>', 'audio')" aria-label="Appel vocal">📞</button>
-          <button type="button" class="btn btn-round btn-small-round" onclick="startCall('<%= match.id %>', 'video')" aria-label="Appel vidéo">🎥</button>
-        </div>
-      <% } else { %>
-        <a href="/premium" class="call-locked" title="Réservé aux packs Premium et VIP">🔒 Appels</a>
-      <% } %>
+      <div class="chat-header-actions">
+        <% if (canCall) { %>
+          <div class="call-buttons">
+            <button type="button" class="btn btn-round btn-small-round" onclick="startCall('<%= match.id %>', 'audio')" aria-label="Appel vocal">📞</button>
+            <button type="button" class="btn btn-round btn-small-round" onclick="startCall('<%= match.id %>', 'video')" aria-label="Appel vidéo">🎥</button>
+          </div>
+        <% } else { %>
+          <a href="/premium" class="call-locked" title="Réservé aux packs Premium et VIP">🔒 Appels</a>
+        <% } %>
+        <details class="chat-menu">
+          <summary aria-label="Plus d'options">⋮</summary>
+          <div class="chat-menu-list">
+            <a href="/signaler/<%= profile.userId %>?next=/matches">🚩 Signaler</a>
+            <a href="/bloquer/<%= profile.userId %>?next=/matches">🚫 Bloquer</a>
+          </div>
+        </details>
+      </div>
     </header>
     <main class="chat-window" id="chat-window" data-match-id="<%= match.id %>">
       <ul class="message-list" id="message-list">

@@ -531,30 +531,36 @@ app.get('/matches', requireAuth, requireProfile, h(async (req, res) => {
     const msgs = await store.getMessages(m.id);
     matches.push({ match: m, profile, lastMessage: msgs[msgs.length - 1] || null });
   }
-  res.render('matches', { matches });
+  res.render('matches', { matches, bloque: req.query.bloque === '1' });
 }));
 
 // --- Chat ---------------------------------------------------------------------
-async function loadMatchOr404(req, res) {
+// Charge le match, vérifie qu'il appartient bien à la personne connectée, et
+// signale si l'autre personne est bloquée (dans un sens ou l'autre) — dans ce
+// cas la conversation reste en base mais devient inaccessible.
+async function loadMatchForUser(req) {
   const match = await store.getMatchById(req.params.matchId);
   if (!match || !store.isUserInMatch(match, req.session.userId)) {
-    return null;
+    return { match: null, otherId: null, blocked: false };
   }
-  return match;
+  const otherId = store.otherUserInMatch(match, req.session.userId);
+  const blocked = await store.isBlocked(req.session.userId, otherId);
+  return { match, otherId, blocked };
 }
 
 app.get('/chat/:matchId', requireAuth, requireProfile, h(async (req, res) => {
-  const match = await loadMatchOr404(req, res);
+  const { match, otherId, blocked } = await loadMatchForUser(req);
   if (!match) return res.status(404).send('Match introuvable.');
-  const otherId = store.otherUserInMatch(match, req.session.userId);
+  if (blocked) return res.redirect('/matches?bloque=1');
   const profile = await store.getProfile(otherId);
   const messages = await store.getMessages(match.id);
   res.render('chat', { match, profile, messages, meId: req.session.userId, canCall: plans.getUserPlan(req.currentUser).calls });
 }));
 
 app.get('/chat/:matchId/messages.json', requireAuth, h(async (req, res) => {
-  const match = await loadMatchOr404(req, res);
+  const { match, blocked } = await loadMatchForUser(req);
   if (!match) return res.status(404).json({ error: 'not found' });
+  if (blocked) return res.status(403).json({ error: 'blocked' });
   const rawMessages = await store.getMessages(match.id);
   const messages = rawMessages.map(m => ({
     id: m.id, text: m.text, createdAt: m.createdAt, mine: m.fromUserId === req.session.userId
@@ -563,13 +569,91 @@ app.get('/chat/:matchId/messages.json', requireAuth, h(async (req, res) => {
 }));
 
 app.post('/chat/:matchId/send', requireAuth, h(async (req, res) => {
-  const match = await loadMatchOr404(req, res);
+  const { match, blocked } = await loadMatchForUser(req);
   if (!match) return res.status(404).json({ error: 'not found' });
+  if (blocked) return res.status(403).json({ error: 'blocked' });
   const text = (req.body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'texte vide' });
   const msg = await store.addMessage(match.id, req.session.userId, text);
   res.json({ ok: true, message: { id: msg.id, text: msg.text, createdAt: msg.createdAt, mine: true } });
 }));
+
+// --- Signalement et blocage de profils --------------------------------------
+// `next` n'est jamais suivi tel quel : on ne redirige que vers un chemin
+// interne (évite qu'un lien bricolé fasse rediriger vers un site externe).
+function safeNext(value, fallback) {
+  return (typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') && !value.includes('://'))
+    ? value
+    : fallback;
+}
+
+const REPORT_REASONS = [
+  { id: 'faux-profil', label: 'Faux profil / usurpation d\'identité' },
+  { id: 'harcelement', label: 'Comportement inapproprié ou harcèlement' },
+  { id: 'arnaque', label: 'Arnaque / sollicitation financière' },
+  { id: 'contenu-choquant', label: 'Contenu choquant ou inapproprié' },
+  { id: 'autre', label: 'Autre' }
+];
+
+app.get('/parametres/blocages', requireAuth, h(async (req, res) => {
+  const profiles = await store.getBlockedProfiles(req.session.userId);
+  res.render('blocages', { profiles });
+}));
+
+app.post('/debloquer/:userId', requireAuth, h(async (req, res) => {
+  await store.unblockUser(req.session.userId, req.params.userId);
+  res.redirect('/parametres/blocages');
+}));
+
+app.get('/bloquer/:userId', requireAuth, h(async (req, res) => {
+  if (req.params.userId === req.session.userId) return res.redirect('/browse');
+  const profile = await store.getProfile(req.params.userId);
+  if (!profile) return res.redirect('/browse');
+  res.render('bloquer', { profile, targetId: req.params.userId, next: safeNext(req.query.next, '/matches') });
+}));
+
+app.post('/bloquer/:userId', requireAuth, h(async (req, res) => {
+  const next = safeNext(req.body.next, '/matches');
+  if (req.params.userId !== req.session.userId) {
+    await store.blockUser(req.session.userId, req.params.userId);
+  }
+  res.redirect(next);
+}));
+
+app.get('/signaler/:userId', requireAuth, h(async (req, res) => {
+  if (req.params.userId === req.session.userId) return res.redirect('/browse');
+  const profile = await store.getProfile(req.params.userId);
+  if (!profile) return res.redirect('/browse');
+  res.render('signaler', {
+    profile,
+    targetId: req.params.userId,
+    reasons: REPORT_REASONS,
+    next: safeNext(req.query.next, '/matches'),
+    error: req.query.error || null
+  });
+}));
+
+app.post('/signaler/:userId', requireAuth, h(async (req, res) => {
+  const next = safeNext(req.body.next, '/matches');
+  if (req.params.userId === req.session.userId) return res.redirect(next);
+
+  const reason = REPORT_REASONS.find(r => r.id === req.body.reason);
+  if (!reason) {
+    return res.redirect(`/signaler/${req.params.userId}?next=${encodeURIComponent(next)}&error=` + encodeURIComponent('Choisis un motif de signalement.'));
+  }
+
+  await store.createReport(req.session.userId, req.params.userId, reason.id, req.body.details);
+  // Signaler bloque aussi par défaut (case cochée d'office côté vue) : la
+  // personne n'a pas à faire les deux démarches séparément pour se protéger.
+  if (req.body.bloquer === '1') {
+    await store.blockUser(req.session.userId, req.params.userId);
+  }
+  res.redirect('/signalement-envoye?next=' + encodeURIComponent(next));
+}));
+
+app.get('/signalement-envoye', requireAuth, (req, res) => {
+  res.render('signalement-envoye', { next: safeNext(req.query.next, '/matches') });
+});
 
 // --- Appels vocaux/vidéo (Premium/VIP) --------------------------------------
 // Jeton de courte durée pour ouvrir la connexion WebSocket de signalisation
