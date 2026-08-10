@@ -1,11 +1,16 @@
 # Blueprint Render — permet un déploiement en un clic via "New > Blueprint"
 # sur https://dashboard.render.com en pointant sur ce dépôt GitHub.
 #
-# ⚠️ Le disque persistant (`disk`) évite de perdre data.json et les photos de
-# profil à chaque redéploiement. Il n'est PAS inclus dans le plan gratuit de
-# Render — passe le service en plan payant (Starter, ~7$/mois) pour l'activer,
-# sinon commente le bloc `disk` ci-dessous (mais toutes les données seront
-# perdues à chaque redéploiement ou redémarrage du service).
+# ⚠️ Plan gratuit = PAS de disque persistant possible sur Render (limite du
+# plan, pas de ce projet). Toutes les données (comptes, matchs, messages,
+# photos) sont donc perdues à chaque redéploiement ou redémarrage du service.
+# Pratique pour tester en ligne, pas pour de vrais utilisateurs.
+#
+# Pour passer en stockage permanent plus tard : repasse le service en plan
+# payant (Starter, ~7$/mois) dans le dashboard Render, puis ajoute un disque
+# (Settings → Disks → Add Disk, mountPath "/data") et une variable
+# d'environnement DATA_DIR=/data. Aucun changement de code nécessaire —
+# lib/db.js et server.js lisent déjà DATA_DIR s'il est présent.
 services:
   - type: web
     name: rencontre-congo
@@ -21,15 +26,9 @@ services:
         generateValue: true
       - key: APP_BASE_URL
         sync: false # à remplir après le 1er déploiement avec l'URL Render (ex: https://rencontre-congo.onrender.com)
-      - key: DATA_DIR
-        value: /data
       - key: CINETPAY_API_KEY
         sync: false # à remplir dans le dashboard Render une fois ton compte CinetPay créé
       - key: CINETPAY_SITE_ID
         sync: false
       - key: CINETPAY_CURRENCY
         value: XAF
-    disk:
-      name: rencontre-congo-data
-      mountPath: /data
-      sizeGB: 1
