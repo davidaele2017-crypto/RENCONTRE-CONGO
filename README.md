@@ -3,7 +3,7 @@
 Application de rencontre simple, pensée pour la communauté congolaise (RDC & Congo-Brazzaville).
 
 ## Fonctionnalités
-- Inscription / connexion par numéro de téléphone (RDC ou Congo-Brazzaville) + mot de passe
+- Inscription / connexion par numéro de téléphone (RDC ou Congo-Brazzaville) + mot de passe, **avec vérification du numéro par code SMS**
 - Profil avec photo, âge, genre, ville, pays, langues parlées (Lingala, Swahili, Kikongo, Tshiluba, Français, Anglais), bio
 - Découverte de profils façon "carte", avec filtre par ville et par langue
 - Like / Passer, avec détection automatique du match mutuel
@@ -45,6 +45,18 @@ Toutes les données (comptes, profils, likes, matchs, messages, commandes) sont 
 4. Ajuste les montants dans `lib/plans.js` (`amount`, en `CINETPAY_CURRENCY`)
 
 Le flux : achat de pack → redirection vers la page de paiement CinetPay → webhook (`/paiement/notifier`) + double-vérification du statut avant de créditer le compte (jamais confiance aveugle dans un webhook, recommandation officielle CinetPay).
+
+## Vérification du numéro par SMS (Twilio Verify)
+1. Crée un compte sur [twilio.com](https://twilio.com)
+2. Récupère `Account SID` et `Auth Token` depuis la Console Twilio
+3. Crée un **Verify Service** (Console → Verify → Services → Create) pour obtenir le `Service SID` (commence par `VA`)
+4. Renseigne `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` dans `.env`
+
+Twilio supporte officiellement l'envoi de SMS vers la RDC (+243) et le Congo-Brazzaville (+242). Un compte Twilio en version d'essai ("trial") ne peut envoyer des SMS qu'à des numéros pré-vérifiés dans sa console — passe en compte payant avant un vrai lancement.
+
+Le flux : inscription (numéro + mot de passe) → code à 6 chiffres envoyé par SMS via Twilio Verify → saisie du code sur `/verify-phone` → le compte n'est **créé en base qu'après validation du code** (`lib/sms.js` + route `/verify-phone` dans `server.js`). Twilio gère lui-même l'expiration du code et la limite de tentatives — rien à stocker de notre côté.
+
+Sans compte Twilio configuré, l'app reste en **mode démo** : le code est généré côté serveur et affiché directement sur la page de vérification au lieu d'être envoyé par SMS.
 
 ## Appels vocaux et vidéo (Premium/VIP)
 Implémentés en WebRTC pur (pas de service tiers de visioconférence) :
@@ -98,10 +110,9 @@ Le dépôt contient un `render.yaml` prêt à l'emploi :
 - Les données sont dans PostgreSQL (voir section dédiée plus haut) ; les photos de profil restent des fichiers, stockés dans `uploads/` (affecté par `DATA_DIR` — pointe vers le disque persistant en production).
 - Les mots de passe sont hachés (scrypt), jamais stockés en clair.
 - Sessions en cookie signé (`express-session`) — pense à changer `SESSION_SECRET` en production (`render.yaml` en génère un automatiquement).
-- Le numéro de téléphone est normalisé (indicatif pays + numéro, ex `+243812345678`) et sert d'identifiant unique, mais **n'est pas vérifié par SMS** — n'importe qui peut saisir n'importe quel numéro. Pour une vraie vérification (code à 6 chiffres envoyé par SMS), il faudrait brancher un service comme Twilio.
+- Le numéro de téléphone est normalisé (indicatif pays + numéro, ex `+243812345678`) et sert d'identifiant unique ; il est vérifié par SMS avant la création du compte (voir section dédiée).
 
 ## Idées pour la suite
-- Vraie vérification par SMS (code à 6 chiffres via Twilio ou équivalent)
 - Serveur TURN pour fiabiliser les appels en 4G
 - Historique des appels manqués
 - Notifications

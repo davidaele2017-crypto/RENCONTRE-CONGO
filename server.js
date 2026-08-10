@@ -14,6 +14,7 @@ const { hashPassword, verifyPassword } = require('./lib/password');
 const store = require('./lib/store');
 const plans = require('./lib/plans');
 const cinetpay = require('./lib/cinetpay');
+const sms = require('./lib/sms');
 const callAuth = require('./lib/callAuth');
 const iceServers = require('./lib/iceServers');
 const { attachSignaling } = require('./lib/signaling');
@@ -161,9 +162,116 @@ app.post('/register', h(async (req, res) => {
     return res.redirect('/register?error=' + encodeURIComponent('Un compte existe déjà avec ce numéro.'));
   }
 
-  const user = await store.createUser({ phone: normalizedPhone, passwordHash: hashPassword(password) });
+  // Évite de renvoyer un SMS (et de payer deux fois) si la personne resoumet
+  // le formulaire pour le même numéro moins d'une minute après.
+  const already = req.session.pendingRegistration;
+  const now = Date.now();
+  if (already && already.phone === normalizedPhone && now - already.startedAt < 60 * 1000) {
+    return res.redirect('/verify-phone');
+  }
+
+  let demoCode = null;
+  try {
+    if (sms.isConfigured()) {
+      await sms.startVerification(normalizedPhone);
+    } else {
+      // Mode démo (pas de compte Twilio configuré) : code généré nous-mêmes,
+      // affiché directement sur la page de vérification au lieu d'un vrai SMS.
+      demoCode = String(Math.floor(100000 + Math.random() * 900000));
+      console.log(`[MODE DÉMO] Code de vérification pour ${normalizedPhone} : ${demoCode}`);
+    }
+  } catch (err) {
+    console.error('Erreur envoi SMS :', err.message);
+    return res.redirect('/register?error=' + encodeURIComponent('Impossible d\'envoyer le SMS de vérification. Vérifie le numéro et réessaie.'));
+  }
+
+  // Le compte n'est créé qu'après vérification du code (voir /verify-phone) —
+  // on garde l'inscription "en attente" en session le temps de la saisie.
+  req.session.pendingRegistration = {
+    phone: normalizedPhone,
+    passwordHash: hashPassword(password),
+    demoCode,
+    startedAt: now
+  };
+  res.redirect('/verify-phone');
+}));
+
+// --- Vérification du numéro par SMS -----------------------------------------
+app.get('/verify-phone', (req, res) => {
+  const pending = req.session.pendingRegistration;
+  if (!pending) return res.redirect('/register');
+  res.render('verify-phone', {
+    phone: pending.phone,
+    demoCode: pending.demoCode,
+    error: req.query.error || null,
+    resent: req.query.resent === '1'
+  });
+});
+
+app.post('/verify-phone', h(async (req, res) => {
+  const pending = req.session.pendingRegistration;
+  if (!pending) return res.redirect('/register');
+
+  const code = (req.body.code || '').trim();
+  if (!code) {
+    return res.redirect('/verify-phone?error=' + encodeURIComponent('Entre le code reçu par SMS.'));
+  }
+
+  let approved = false;
+  try {
+    if (pending.demoCode) {
+      approved = code === pending.demoCode;
+    } else {
+      const result = await sms.checkVerification(pending.phone, code);
+      approved = result.approved;
+    }
+  } catch (err) {
+    console.error('Erreur vérification SMS :', err.message);
+    return res.redirect('/verify-phone?error=' + encodeURIComponent('Erreur de vérification, réessaie.'));
+  }
+
+  if (!approved) {
+    return res.redirect('/verify-phone?error=' + encodeURIComponent('Code incorrect ou expiré.'));
+  }
+
+  // Sécurité supplémentaire (ex: deux onglets ouverts) — la contrainte UNIQUE
+  // sur la colonne phone empêcherait de toute façon un doublon.
+  if (await store.getUserByPhone(pending.phone)) {
+    delete req.session.pendingRegistration;
+    return res.redirect('/login?error=' + encodeURIComponent('Ce numéro est déjà enregistré, connecte-toi.'));
+  }
+
+  const user = await store.createUser({ phone: pending.phone, passwordHash: pending.passwordHash });
+  delete req.session.pendingRegistration;
   req.session.userId = user.id;
   res.redirect('/profile/edit?besoin=1');
+}));
+
+app.post('/verify-phone/resend', h(async (req, res) => {
+  const pending = req.session.pendingRegistration;
+  if (!pending) return res.redirect('/register');
+
+  const now = Date.now();
+  if (now - pending.startedAt < 45 * 1000) {
+    return res.redirect('/verify-phone?error=' + encodeURIComponent('Patiente un peu avant de redemander un code.'));
+  }
+
+  try {
+    if (sms.isConfigured()) {
+      await sms.startVerification(pending.phone);
+      pending.startedAt = now;
+    } else {
+      pending.demoCode = String(Math.floor(100000 + Math.random() * 900000));
+      pending.startedAt = now;
+      console.log(`[MODE DÉMO] Nouveau code pour ${pending.phone} : ${pending.demoCode}`);
+    }
+    req.session.pendingRegistration = pending;
+  } catch (err) {
+    console.error('Erreur renvoi SMS :', err.message);
+    return res.redirect('/verify-phone?error=' + encodeURIComponent('Impossible de renvoyer le SMS pour l\'instant.'));
+  }
+
+  res.redirect('/verify-phone?resent=1');
 }));
 
 app.get('/login', (req, res) => {

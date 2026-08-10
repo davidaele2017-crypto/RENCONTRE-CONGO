@@ -36,6 +36,12 @@ services:
         sync: false
       - key: CINETPAY_CURRENCY
         value: XAF
+      - key: TWILIO_ACCOUNT_SID
+        sync: false # à remplir dans le dashboard Render une fois ton compte Twilio créé
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_VERIFY_SERVICE_SID
+        sync: false
     disk:
       name: rencontre-congo-data
       mountPath: /data

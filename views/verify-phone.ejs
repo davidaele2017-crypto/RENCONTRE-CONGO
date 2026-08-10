@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <%- include('partials/head', { title: 'Vérification — Rencontre Congo' }) %>
+</head>
+<body class="auth-page" data-logged-in="">
+  <main class="auth-card" id="app-content">
+    <div class="auth-logo">📱</div>
+    <h1>Vérifie ton numéro</h1>
+    <p class="tagline">
+      <% if (demoCode) { %>
+        Mode démo (pas de compte SMS connecté) — entre le code ci-dessous.
+      <% } else { %>
+        Un code à 6 chiffres a été envoyé par SMS au <strong><%= phone %></strong>.
+      <% } %>
+    </p>
+
+    <% if (demoCode) { %>
+      <div class="alert alert-info">🔑 Code de démo : <strong style="font-size:1.2em; letter-spacing:2px;"><%= demoCode %></strong></div>
+    <% } %>
+    <% if (resent) { %>
+      <div class="alert alert-info">✅ Un nouveau code a été envoyé.</div>
+    <% } %>
+    <% if (error) { %><div class="alert"><%= error %></div><% } %>
+
+    <form method="POST" action="/verify-phone" class="form">
+      <label>Code reçu par SMS
+        <input type="text" name="code" required inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="one-time-code" placeholder="123456" style="letter-spacing:4px; font-size:1.3rem; text-align:center;">
+      </label>
+      <button type="submit" class="btn btn-primary">Vérifier</button>
+    </form>
+
+    <form method="POST" action="/verify-phone/resend" style="margin-top:14px;">
+      <button type="submit" class="btn btn-outline" style="width:100%;">Renvoyer le code</button>
+    </form>
+
+    <p class="switch">Mauvais numéro ? <a href="/register">Recommencer l'inscription</a></p>
+  </main>
+</body>
+</html>
