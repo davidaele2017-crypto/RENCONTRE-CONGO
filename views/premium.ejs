@@ -34,7 +34,10 @@
           <p class="plan-tagline"><%= p.tagline %></p>
           <p class="plan-price">
             <% if (p.price === 0) { %>Gratuit
-            <% } else { %>$<%= p.price.toFixed(2) %><span>/mois</span><% } %>
+            <% } else { const pr = pricingFor(p); %>
+              <%= pr.amount.toLocaleString('fr-FR') %> <%= pr.currency %><span>/mois</span>
+              <br><small class="plan-price-usd">≈ $<%= p.price.toFixed(2) %></small>
+            <% } %>
           </p>
           <ul class="plan-features">
             <% p.features.forEach(f => { %><li><%= f %></li><% }) %>

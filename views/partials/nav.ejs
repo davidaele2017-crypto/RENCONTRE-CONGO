@@ -2,11 +2,14 @@
   <div class="topbar-row">
     <a class="brand" href="/browse">🧡 Rencontre<span>Congo</span></a>
     <% if (currentUserId) { %>
-      <a href="/premium" class="plan-pill plan-pill-<%= currentPlan ? currentPlan.id : 'gratuit' %>">
-        <% if (currentPlan && currentPlan.id === 'vip') { %>👑 VIP
-        <% } else if (currentPlan && currentPlan.id === 'premium') { %>✨ Premium
-        <% } else { %>💎 Premium<% } %>
-      </a>
+      <div class="topbar-actions">
+        <button type="button" id="push-enable-btn" class="link-btn" hidden>🔔 Activer</button>
+        <a href="/premium" class="plan-pill plan-pill-<%= currentPlan ? currentPlan.id : 'gratuit' %>">
+          <% if (currentPlan && currentPlan.id === 'vip') { %>👑 VIP
+          <% } else if (currentPlan && currentPlan.id === 'premium') { %>✨ Premium
+          <% } else { %>💎 Premium<% } %>
+        </a>
+      </div>
     <% } %>
   </div>
   <% if (currentUserId) { %>
@@ -18,5 +21,6 @@
     <form action="/logout" method="POST" class="inline"><button class="link-btn" type="submit">Quitter</button></form>
   </nav>
   <script src="/public/js/calls.js"></script>
+  <script src="/public/js/push.js"></script>
   <% } %>
 </header>

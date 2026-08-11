@@ -34,14 +34,18 @@ services:
         sync: false # à remplir dans le dashboard Render une fois ton compte CinetPay créé
       - key: CINETPAY_SITE_ID
         sync: false
-      - key: CINETPAY_CURRENCY
-        value: XAF
       - key: TWILIO_ACCOUNT_SID
         sync: false # à remplir dans le dashboard Render une fois ton compte Twilio créé
       - key: TWILIO_AUTH_TOKEN
         sync: false
       - key: TWILIO_VERIFY_SERVICE_SID
         sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false # à remplir dans le dashboard Render — voir .env.example pour générer la paire de clés
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_CONTACT_EMAIL
+        value: contact@puelainvestment.com
     disk:
       name: rencontre-congo-data
       mountPath: /data

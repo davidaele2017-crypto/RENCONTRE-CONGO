@@ -13,6 +13,7 @@ Application de rencontre simple, pensée pour la communauté congolaise (RDC & C
 - **Paiement Mobile Money** (Orange Money, Airtel Money, M-Pesa, carte) via CinetPay — voir section dédiée
 - **Appels vocaux et vidéo** entre matchs (réservés Premium/VIP) via WebRTC
 - **Signalement et blocage de profils**, accessibles depuis la découverte et le chat
+- **Notifications push** (nouveau match, nouveau message) — gratuites, sans compte tiers, voir section dédiée
 - **Installable sur iOS et Android** (PWA) — pas besoin de passer par l'App Store ou le Play Store
 
 ## Prérequis
@@ -44,9 +45,19 @@ Toutes les données (comptes, profils, likes, matchs, messages, commandes) sont 
 1. Crée un compte sur [cinetpay.com](https://cinetpay.com) (KYC entreprise requis)
 2. Renseigne `CINETPAY_API_KEY` et `CINETPAY_SITE_ID` dans `.env`
 3. **Teste un vrai paiement en mode test CinetPay avant de passer en argent réel** — l'intégration (`lib/cinetpay.js`) est basée sur la documentation publique de CinetPay, pas sur un compte réel testé pendant le développement
-4. Ajuste les montants dans `lib/plans.js` (`amount`, en `CINETPAY_CURRENCY`)
+4. Les montants sont dans `lib/plans.js` (`PLANS.*.pricing`) — **par pays**, pas globalement : la RDC paie en CDF (franc congolais) et le Congo-Brazzaville en XAF (zone CEMAC), ce sont deux devises différentes chez CinetPay. Le pays utilisé est celui du profil de l'utilisateur.
 
 Le flux : achat de pack → redirection vers la page de paiement CinetPay → webhook (`/paiement/notifier`) + double-vérification du statut avant de créditer le compte (jamais confiance aveugle dans un webhook, recommandation officielle CinetPay).
+
+### Tarifs actuels
+Calculés pour rester rentable même avec très peu d'abonnés : les coûts fixes mensuels (hébergement Render + abonnement marchand CinetPay amorti) tournent autour de 19 $/mois — avec les prix ci-dessous, ~6 abonnés Premium suffisent déjà à les couvrir.
+
+| Pack | RDC (CDF) | Congo-Brazzaville (XAF) | Repère USD |
+|---|---|---|---|
+| Premium | 8 000 CDF/mois | 2 100 XAF/mois | ≈ $3.49 |
+| VIP | 18 000 CDF/mois | 4 800 XAF/mois | ≈ $7.99 |
+
+À réajuster si les taux de change bougent fortement (taux utilisés en août 2026 : ~2 270 CDF/$ et ~600 XAF/$) ou si les coûts d'hébergement/paiement changent.
 
 ## Vérification du numéro par SMS (Twilio Verify)
 1. Crée un compte sur [twilio.com](https://twilio.com)
@@ -67,6 +78,25 @@ Accessibles depuis une carte de découverte (`/browse`) ou le menu « ⋮ » d'u
 - **Signaler** (`/signaler/:userId`) enregistre un motif (faux profil, harcèlement, arnaque, contenu choquant, autre) + des précisions optionnelles en base (table `reports`). La case « Bloquer aussi cette personne » est cochée par défaut. Il n'y a pas encore d'interface d'administration pour consulter les signalements — ça se fait pour l'instant en interrogeant directement la table `reports` en base.
 
 Le gating est fait côté serveur à tous les niveaux (recherche de profils, chat, et jusqu'à la signalisation WebSocket des appels) — pas seulement caché dans l'interface.
+
+## Notifications push (nouveau match, nouveau message)
+Contrairement à CinetPay ou Twilio, **aucun compte tiers ni abonnement à créer** — ça repose sur le standard Web Push (protocole VAPID), pris en charge nativement par les navigateurs, gratuit et sans inscription.
+
+1. Génère une paire de clés (une seule fois, à garder stable) :
+   ```bash
+   node -e "console.log(require('web-push').generateVAPIDKeys())"
+   ```
+2. Renseigne `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (et éventuellement `VAPID_CONTACT_EMAIL`) dans `.env`
+
+Le flux : un bouton **🔔 Activer** apparaît dans la nav (`public/js/push.js`) tant que la personne n'a pas encore autorisé les notifications sur cet appareil — jamais de demande de permission automatique (les navigateurs l'ignorent si ce n'est pas déclenché par un clic). Une fois autorisées, le serveur envoie une notification (`lib/push.js`) :
+- à la personne qui reçoit un **nouveau match** (celle qui vient de liker voit déjà le match s'afficher, inutile de la notifier elle-même) ;
+- à la personne qui reçoit un **nouveau message** dans un match existant.
+
+Les abonnements morts (désinstallation, permission retirée...) sont détectés automatiquement (réponse 404/410 du service de push) et supprimés de la base.
+
+⚠️ **Sur iPhone**, les notifications push ne fonctionnent que si l'app a été **installée sur l'écran d'accueil** (voir section PWA ci-dessous) — Safari ne les autorise pas dans un simple onglet, c'est une limite d'iOS (16.4+), pas de l'app.
+
+Sans clés VAPID configurées, le bouton n'apparaît jamais et l'app fonctionne normalement sans notifications.
 
 ## Appels vocaux et vidéo (Premium/VIP)
 Implémentés en WebRTC pur (pas de service tiers de visioconférence) :
@@ -125,5 +155,5 @@ Le dépôt contient un `render.yaml` prêt à l'emploi :
 ## Idées pour la suite
 - Serveur TURN pour fiabiliser les appels en 4G
 - Historique des appels manqués
-- Notifications
+- Notification push pour un appel entrant (actuellement : nouveau match + nouveau message seulement)
 - Interface d'administration pour consulter/traiter les signalements (table `reports`)

@@ -44,6 +44,8 @@ button, input, select, textarea { font-family: inherit; font-size: 1rem; }
   z-index: 10;
 }
 .topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.topbar-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.topbar-actions .link-btn { font-size: .8rem; white-space: nowrap; }
 .brand { color: #fff; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.3px; white-space: nowrap; }
 .brand span { font-weight: 400; opacity: .9; }
 /* Défilement horizontal plutôt que retour à la ligne : avec pas mal d'onglets
@@ -303,6 +305,7 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 .plan-tagline { color: var(--muted); font-size: .85rem; margin: 0 0 12px; }
 .plan-price { font-size: 1.8rem; font-weight: 800; margin: 0 0 16px; }
 .plan-price span { font-size: .9rem; font-weight: 500; color: var(--muted); }
+.plan-price-usd { font-size: .75rem; font-weight: 500; color: var(--muted); }
 .plan-features { list-style: none; margin: 0 0 20px; padding: 0; text-align: left; font-size: .88rem; }
 .plan-features li { padding: 6px 0 6px 26px; position: relative; }
 .plan-features li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 800; }

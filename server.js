@@ -15,6 +15,7 @@ const store = require('./lib/store');
 const plans = require('./lib/plans');
 const cinetpay = require('./lib/cinetpay');
 const sms = require('./lib/sms');
+const push = require('./lib/push');
 const callAuth = require('./lib/callAuth');
 const iceServers = require('./lib/iceServers');
 const { attachSignaling } = require('./lib/signaling');
@@ -398,6 +399,15 @@ app.post('/browse/like/:targetId', requireAuth, requireProfile, h(async (req, re
   if (matched) {
     const targetProfile = await store.getProfile(target.id);
     qs.set('matched', targetProfile ? targetProfile.name : '');
+    // On notifie seulement l'AUTRE personne : celle qui vient de liker voit
+    // déjà le match s'afficher immédiatement dans sa propre page.
+    const myProfile = await store.getProfile(req.session.userId);
+    push.notifyUser(target.id, {
+      title: '🎉 Nouveau match !',
+      body: `Tu as matché avec ${myProfile ? myProfile.name : 'quelqu\'un'} sur Rencontre Congo`,
+      url: '/matches',
+      tag: 'match'
+    }).catch((err) => console.error('Erreur notification push (match) :', err.message));
   }
   res.redirect('/browse?' + qs.toString());
 }));
@@ -425,9 +435,12 @@ app.get('/liked-me', requireAuth, requireProfile, h(async (req, res) => {
 // --- Packs (Standard / Premium / VIP) -----------------------------------------
 app.get('/premium', requireAuth, h(async (req, res) => {
   const user = req.currentUser;
+  const profile = await store.getProfile(req.session.userId);
+  const pays = (profile && profile.pays) || 'RDC';
   res.render('premium', {
     plans: plans.PLANS,
     order: plans.PLAN_ORDER,
+    pricingFor: (plan) => plans.getPlanPricing(plan, pays),
     currentPlanId: (user && user.plan) || 'gratuit',
     success: req.query.success === '1',
     echec: req.query.echec === '1',
@@ -440,9 +453,10 @@ app.post('/premium/choisir', requireAuth, h(async (req, res) => {
   const planId = req.body.plan;
   const plan = plans.getPlan(planId);
   const user = req.currentUser;
+  const profile = await store.getProfile(req.session.userId);
 
   // Repasser en Standard (gratuit) ne coûte rien : aucun paiement à faire.
-  if (planId === 'gratuit' || plan.amount === 0) {
+  if (planId === 'gratuit' || !plan.pricing) {
     await store.setPlan(req.session.userId, 'gratuit');
     return res.redirect('/premium?success=1');
   }
@@ -455,8 +469,10 @@ app.post('/premium/choisir', requireAuth, h(async (req, res) => {
     return res.redirect('/premium?success=1');
   }
 
-  const order = await store.createOrder(req.session.userId, planId, plan.amount, process.env.CINETPAY_CURRENCY || 'XAF');
-  const profile = await store.getProfile(req.session.userId);
+  // Devise + montant réels dépendent du pays du profil (CDF en RDC, XAF au
+  // Congo-Brazzaville — deux devises différentes chez CinetPay, voir lib/plans.js).
+  const pricing = plans.getPlanPricing(plan, profile ? profile.pays : 'RDC');
+  const order = await store.createOrder(req.session.userId, planId, pricing.amount, pricing.currency);
 
   cinetpay.initiatePayment({
     transactionId: order.transactionId,
@@ -575,12 +591,21 @@ app.get('/chat/:matchId/messages.json', requireAuth, h(async (req, res) => {
 }));
 
 app.post('/chat/:matchId/send', requireAuth, h(async (req, res) => {
-  const { match, blocked } = await loadMatchForUser(req);
+  const { match, otherId, blocked } = await loadMatchForUser(req);
   if (!match) return res.status(404).json({ error: 'not found' });
   if (blocked) return res.status(403).json({ error: 'blocked' });
   const text = (req.body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'texte vide' });
   const msg = await store.addMessage(match.id, req.session.userId, text);
+
+  const myProfile = await store.getProfile(req.session.userId);
+  push.notifyUser(otherId, {
+    title: myProfile ? myProfile.name : 'Nouveau message',
+    body: text.slice(0, 120),
+    url: `/chat/${match.id}`,
+    tag: `chat-${match.id}` // regroupe les notifs successives du même match au lieu d'en empiler plusieurs
+  }).catch((err) => console.error('Erreur notification push (message) :', err.message));
+
   res.json({ ok: true, message: { id: msg.id, text: msg.text, createdAt: msg.createdAt, mine: true } });
 }));
 
@@ -671,6 +696,25 @@ app.get('/call/token', requireAuth, (req, res) => {
 app.get('/call/ice-servers', requireAuth, (req, res) => {
   res.json({ iceServers: iceServers.getIceServers() });
 });
+
+// --- Notifications push (nouveaux matchs, nouveaux messages) ---------------
+app.get('/push/public-key', requireAuth, (req, res) => {
+  res.json({ key: push.getPublicKey(), configured: push.isConfigured() });
+});
+
+app.post('/push/subscribe', requireAuth, h(async (req, res) => {
+  const sub = req.body;
+  if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+    return res.status(400).json({ error: 'abonnement invalide' });
+  }
+  await store.addPushSubscription(req.session.userId, sub);
+  res.json({ ok: true });
+}));
+
+app.post('/push/unsubscribe', requireAuth, h(async (req, res) => {
+  if (req.body.endpoint) await store.removePushSubscription(req.body.endpoint);
+  res.json({ ok: true });
+}));
 
 // Filet de sécurité : si un handler async plante (ex: base de données
 // injoignable), on répond proprement plutôt que de laisser la requête
