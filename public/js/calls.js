@@ -21,53 +21,129 @@
   let isCaller = false;
   let pendingCandidates = [];
   let iceServersCache = null;
+  let contactName = '';
+  let contactPhoto = '';
+  let callTimerInterval = null;
+  let callConnectedAt = null;
 
   // --- UI : construite dynamiquement pour ne pas avoir à toucher chaque vue ---
+  // Deux écrans plein écran façon WhatsApp : l'un pour un appel entrant
+  // (avatar + nom + accepter/refuser), l'autre pour l'appel en cours.
   const ui = document.createElement('div');
   ui.id = 'call-ui';
   ui.innerHTML = `
-    <div id="incoming-call-banner" class="call-banner" hidden>
-      <span id="incoming-call-text"></span>
-      <div class="call-banner-actions">
-        <button type="button" id="decline-call-btn" class="btn btn-round btn-pass">✖️</button>
-        <button type="button" id="accept-call-btn" class="btn btn-round btn-like">✅</button>
+    <div id="incoming-call-screen" class="call-overlay incoming-call-screen" hidden>
+      <div class="call-avatar-wrap">
+        <div id="incoming-avatar" class="call-avatar call-avatar-pulse"><span id="incoming-avatar-fallback"></span></div>
+      </div>
+      <div id="incoming-call-name" class="call-name"></div>
+      <div id="incoming-call-sub" class="call-substatus"></div>
+      <div class="call-actions-incoming">
+        <div class="call-action">
+          <button type="button" id="decline-call-btn" class="btn btn-round btn-pass btn-call-lg" aria-label="Refuser">✖️</button>
+          <span>Refuser</span>
+        </div>
+        <div class="call-action">
+          <button type="button" id="accept-call-btn" class="btn btn-round btn-like btn-call-lg" aria-label="Accepter">✅</button>
+          <span>Accepter</span>
+        </div>
       </div>
     </div>
     <div id="call-overlay" class="call-overlay" hidden>
-      <div id="call-status" class="call-status"></div>
       <video id="remote-video" class="remote-video" autoplay playsinline></video>
+      <div id="voice-avatar-wrap" class="call-avatar-wrap">
+        <div id="voice-avatar" class="call-avatar"><span id="voice-avatar-fallback"></span></div>
+      </div>
+      <div id="call-name" class="call-name"></div>
+      <div id="call-status" class="call-substatus"></div>
       <video id="local-video" class="local-video" autoplay playsinline muted></video>
       <div class="call-controls">
-        <button type="button" id="toggle-mute-btn" class="btn btn-round">🎤</button>
-        <button type="button" id="hangup-btn" class="btn btn-round btn-pass">📞</button>
+        <div class="call-action">
+          <button type="button" id="toggle-mute-btn" class="btn btn-round">🎤</button>
+          <span>Muet</span>
+        </div>
+        <div class="call-action">
+          <button type="button" id="hangup-btn" class="btn btn-round btn-pass btn-call-lg">📞</button>
+          <span>Terminer</span>
+        </div>
       </div>
     </div>
   `;
   document.body.appendChild(ui);
 
-  const incomingBanner = document.getElementById('incoming-call-banner');
-  const incomingText = document.getElementById('incoming-call-text');
+  const incomingScreen = document.getElementById('incoming-call-screen');
+  const incomingAvatar = document.getElementById('incoming-avatar');
+  const incomingAvatarFallback = document.getElementById('incoming-avatar-fallback');
+  const incomingName = document.getElementById('incoming-call-name');
+  const incomingSub = document.getElementById('incoming-call-sub');
   const callOverlay = document.getElementById('call-overlay');
   const callStatus = document.getElementById('call-status');
+  const callNameEl = document.getElementById('call-name');
+  const voiceAvatarWrap = document.getElementById('voice-avatar-wrap');
+  const voiceAvatar = document.getElementById('voice-avatar');
+  const voiceAvatarFallback = document.getElementById('voice-avatar-fallback');
   const remoteVideo = document.getElementById('remote-video');
   const localVideo = document.getElementById('local-video');
 
   let incomingCallInfo = null;
 
+  function setAvatar(imgEl, fallbackEl, name, photoUrl) {
+    fallbackEl.textContent = (name || '?').charAt(0).toUpperCase();
+    if (photoUrl) {
+      imgEl.style.backgroundImage = `url("${photoUrl}")`;
+      imgEl.classList.add('call-avatar-photo');
+    } else {
+      imgEl.style.backgroundImage = '';
+      imgEl.classList.remove('call-avatar-photo');
+    }
+  }
+
   function setStatus(text) { callStatus.textContent = text; }
 
-  function showIncomingBanner(fromName, mode) {
-    incomingText.textContent = `📞 ${fromName} t'appelle (${mode === 'video' ? 'vidéo' : 'vocal'})`;
-    incomingBanner.hidden = false;
+  function stopCallTimer() {
+    if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
+    callConnectedAt = null;
   }
-  function hideIncomingBanner() { incomingBanner.hidden = true; }
 
-  function showOverlay(mode) {
-    callOverlay.hidden = false;
-    localVideo.style.display = mode === 'video' ? '' : 'none';
-    remoteVideo.style.display = mode === 'video' ? '' : 'none';
+  function startCallTimer() {
+    stopCallTimer();
+    callConnectedAt = Date.now();
+    callTimerInterval = setInterval(() => {
+      const secs = Math.floor((Date.now() - callConnectedAt) / 1000);
+      const m = String(Math.floor(secs / 60)).padStart(2, '0');
+      const s = String(secs % 60).padStart(2, '0');
+      setStatus(`${m}:${s}`);
+    }, 1000);
   }
-  function hideOverlay() { callOverlay.hidden = true; }
+
+  function showIncomingScreen(fromName, fromPhoto, mode) {
+    setAvatar(incomingAvatar, incomingAvatarFallback, fromName, fromPhoto);
+    incomingName.textContent = fromName || 'Quelqu\'un';
+    incomingSub.textContent = mode === 'video' ? '📹 Appel vidéo entrant...' : '📞 Appel vocal entrant...';
+    incomingScreen.hidden = false;
+    window.RCSounds && window.RCSounds.startRingtone();
+  }
+  function hideIncomingScreen() {
+    incomingScreen.hidden = true;
+    window.RCSounds && window.RCSounds.stopRingtone();
+  }
+
+  function showOverlay(mode, name, photo) {
+    callNameEl.textContent = name || '';
+    setAvatar(voiceAvatar, voiceAvatarFallback, name, photo);
+    callOverlay.hidden = false;
+    const isVideo = mode === 'video';
+    localVideo.style.display = isVideo ? '' : 'none';
+    remoteVideo.style.display = isVideo ? '' : 'none';
+    voiceAvatarWrap.hidden = isVideo;
+  }
+  function hideOverlay() {
+    callOverlay.hidden = true;
+    remoteVideo.srcObject = null;
+    localVideo.srcObject = null;
+    window.RCSounds && window.RCSounds.stopRingback();
+    stopCallTimer();
+  }
 
   function warnBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; }
 
@@ -95,6 +171,9 @@
   function send(message) {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
   }
+  // Exposé pour que d'autres scripts (ex: chat.js, indicateur "écrit...")
+  // puissent réutiliser la même connexion WebSocket sans en ouvrir une autre.
+  window.__RC_WS_SEND = send;
 
   async function createPeerConnection() {
     const servers = await getIceServers();
@@ -109,8 +188,12 @@
       if (e.candidate) send({ type: 'ice-candidate', matchId: currentMatchId, candidate: e.candidate });
     };
     pc.onconnectionstatechange = () => {
-      if (pc && pc.connectionState === 'connected') setStatus('En communication');
+      if (pc && pc.connectionState === 'connected') {
+        window.RCSounds && window.RCSounds.stopRingback();
+        startCallTimer();
+      }
       if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) {
+        stopCallTimer();
         setStatus('Connexion perdue...');
       }
     };
@@ -136,18 +219,22 @@
     currentMatchId = null;
     pendingCandidates = [];
     hideOverlay();
-    hideIncomingBanner();
+    hideIncomingScreen();
+    window.RCSounds && window.RCSounds.stopAll();
     window.removeEventListener('beforeunload', warnBeforeUnload);
   }
 
   // --- Actions déclenchées par l'utilisateur ---
 
-  window.startCall = async function (matchId, mode) {
+  window.startCall = async function (matchId, mode, name, photo) {
     currentMatchId = matchId;
     currentMode = mode;
     isCaller = true;
-    showOverlay(mode);
+    contactName = name || '';
+    contactPhoto = photo || '';
+    showOverlay(mode, contactName, contactPhoto);
     setStatus('Appel en cours...');
+    window.RCSounds && window.RCSounds.startRingback();
     window.addEventListener('beforeunload', warnBeforeUnload);
     try {
       await acquireMedia(mode);
@@ -159,14 +246,24 @@
     send({ type: 'call-invite', matchId, mode });
   };
 
+  // Boutons d'appel dans le chat (data-attributes plutôt qu'un onclick inline,
+  // pour ne pas avoir à échapper le nom/la photo du contact dans du JS inline).
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-call-mode]');
+    if (!btn) return;
+    window.startCall(btn.dataset.matchId, btn.dataset.callMode, btn.dataset.contactName, btn.dataset.contactPhoto);
+  });
+
   document.getElementById('accept-call-btn').addEventListener('click', async () => {
     if (!incomingCallInfo) return;
-    const { matchId, mode } = incomingCallInfo;
-    hideIncomingBanner();
+    const { matchId, mode, fromName, fromPhoto } = incomingCallInfo;
+    hideIncomingScreen();
     currentMatchId = matchId;
     currentMode = mode;
     isCaller = false;
-    showOverlay(mode);
+    contactName = fromName || '';
+    contactPhoto = fromPhoto || '';
+    showOverlay(mode, contactName, contactPhoto);
     setStatus('Connexion...');
     window.addEventListener('beforeunload', warnBeforeUnload);
     try {
@@ -184,7 +281,7 @@
   document.getElementById('decline-call-btn').addEventListener('click', () => {
     if (incomingCallInfo) send({ type: 'call-declined', matchId: incomingCallInfo.matchId });
     incomingCallInfo = null;
-    hideIncomingBanner();
+    hideIncomingScreen();
   });
 
   document.getElementById('hangup-btn').addEventListener('click', () => {
@@ -197,7 +294,9 @@
     const track = localStream.getAudioTracks()[0];
     if (!track) return;
     track.enabled = !track.enabled;
-    e.target.textContent = track.enabled ? '🎤' : '🔇';
+    const btn = e.currentTarget;
+    btn.textContent = track.enabled ? '🎤' : '🔇';
+    btn.classList.toggle('btn-muted', !track.enabled);
   });
 
   // --- Messages venant du serveur de signalisation ---
@@ -205,12 +304,13 @@
   async function handleMessage(msg) {
     switch (msg.type) {
       case 'incoming-call':
-        incomingCallInfo = { matchId: msg.matchId, mode: msg.mode };
-        showIncomingBanner(msg.fromName, msg.mode);
+        incomingCallInfo = { matchId: msg.matchId, mode: msg.mode, fromName: msg.fromName, fromPhoto: msg.fromPhoto ? `/uploads/${msg.fromPhoto}` : '' };
+        showIncomingScreen(msg.fromName, incomingCallInfo.fromPhoto, msg.mode);
         break;
 
       case 'call-accepted':
         if (msg.matchId !== currentMatchId || !isCaller) return;
+        window.RCSounds && window.RCSounds.stopRingback();
         setStatus('Connexion...');
         await createPeerConnection();
         const offer = await pc.createOffer();
@@ -225,6 +325,7 @@
         break;
 
       case 'call-failed':
+        window.RCSounds && window.RCSounds.stopAll();
         if (msg.reason === 'premium-required') {
           alert('Les appels sont réservés aux packs Premium et VIP. Va sur la page Premium pour en profiter.');
         } else if (msg.reason === 'offline') {
@@ -263,6 +364,13 @@
           pendingCandidates.push(candidate);
         }
         break;
+
+      // "Quelqu'un est en train d'écrire" — relayé tel quel par le serveur
+      // (voir lib/signaling.js), consommé ici par chat.js via un événement DOM
+      // pour ne pas coupler chat.js à la connexion WebSocket elle-même.
+      case 'typing':
+        document.dispatchEvent(new CustomEvent('rc:typing', { detail: msg }));
+        break;
     }
   }
 
@@ -276,6 +384,7 @@
     window.__RC_CALLS_READY = false;
     delete window.__RC_CALLS_TEARDOWN;
     delete window.startCall;
+    delete window.__RC_WS_SEND;
   };
 
   connectSocket();

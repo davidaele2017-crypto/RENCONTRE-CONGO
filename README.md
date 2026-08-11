@@ -103,6 +103,8 @@ Implémentés en WebRTC pur (pas de service tiers de visioconférence) :
 - Signalisation via WebSocket (`lib/signaling.js`) — relaie les messages entre les deux personnes d'un match (offres/réponses SDP, candidats ICE), ne transporte jamais le son/l'image
 - Gating serveur : seul un compte Premium/VIP peut **lancer** un appel (vérifié côté serveur, pas juste caché dans l'interface) ; recevoir un appel est possible avec n'importe quel pack
 - `lib/iceServers.js` fournit les serveurs STUN/TURN au navigateur
+- Interface plein écran façon WhatsApp (`public/js/calls.js`) : avatar (photo ou initiale) avec halo animé, nom du contact, minuteur d'appel une fois connecté ; écran d'appel entrant séparé avec gros boutons Accepter/Refuser
+- Sonneries générées avec l'API Web Audio (`public/js/sounds.js`, aucun fichier audio à héberger) : tonalité d'attente côté appelant tant que l'autre n'a pas décroché, sonnerie côté appelé à la réception d'un appel — les deux s'arrêtent dès que l'appel est accepté/refusé/terminé
 
 ⚠️ **Limite importante** : sans serveur TURN, les appels fonctionnent bien en Wifi mais peuvent échouer sur certains réseaux mobiles/4G (fréquent avec le CGNAT utilisé par beaucoup d'opérateurs). Pour fiabiliser, ajoute un serveur TURN (Twilio Network Traversal Service, Xirsys, ou un coturn auto-hébergé) via 3 variables d'environnement — aucun changement de code nécessaire :
 ```
@@ -112,6 +114,10 @@ TURN_CREDENTIAL=...
 ```
 
 Grâce à la navigation SPA (voir ci-dessous), un appel en cours **survit** à un changement de page — plus besoin de rester bloqué sur un seul écran pendant un appel.
+
+## Messagerie : indicateur "en train d'écrire" et son de réception
+- `public/js/chat.js` envoie un événement `typing` (limité à un envoi toutes les 2s pendant la frappe) sur la même connexion WebSocket que les appels (`public/js/calls.js` l'expose via `window.__RC_WS_SEND`, relayé tel quel par `lib/signaling.js`) — l'autre personne voit une bulle à trois points animés dans la conversation, qui disparaît automatiquement après ~3s sans nouvelle frappe ou dès qu'un vrai message arrive
+- Un petit "ding" (`public/js/sounds.js`) est joué à la réception d'un nouveau message dans une conversation ouverte (détecté via le sondage périodique de `chat.js`, pas de doublon pour les messages qu'on vient d'envoyer soi-même)
 
 ## Navigation "SPA légère" (`public/js/router.js`)
 Le site reste un site multi-pages classique côté serveur (chaque route EJS produit toujours une page HTML complète et valide — fonctionne même sans JavaScript, un lien direct ou un F5 marchent toujours). `router.js` intercepte les clics sur les liens et les envois de formulaires internes, va chercher la page cible en arrière-plan (`fetch`), puis ne remplace que `<div id="app-content">` au lieu de recharger toute la page.

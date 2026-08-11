@@ -334,47 +334,90 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
   background: rgba(255,255,255,.2); padding: 8px 12px; border-radius: 999px;
 }
 
-/* --- Bannière d'appel entrant --- */
-.call-banner {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  background: var(--ink); color: #fff;
-  padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding-top: max(14px, env(safe-area-inset-top));
-  box-shadow: 0 4px 16px rgba(0,0,0,.25);
-}
-.call-banner-actions { display: flex; gap: 10px; flex-shrink: 0; }
-.call-banner .btn-round { width: 44px; height: 44px; font-size: 1.2rem; }
+/* --- En-tête du chat : nom + statut ("écrit...") --- */
+.chat-brand { display: flex; align-items: center; gap: 10px; }
+.chat-back { font-size: 1.15rem; }
+.chat-contact-info { display: flex; flex-direction: column; line-height: 1.2; }
+.chat-contact-status { font-size: .72rem; font-weight: 700; opacity: .9; }
 
-/* --- Écran d'appel plein écran --- */
+/* --- Écrans d'appel plein écran (façon WhatsApp) : appel entrant + appel en cours --- */
 .call-overlay {
   position: fixed; inset: 0; z-index: 200;
-  background: #12100e; color: #fff;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 20%, #2c2440, #14110f 75%);
+  color: #fff;
+  display: flex; flex-direction: column; align-items: center;
+  padding-top: max(90px, calc(env(safe-area-inset-top) + 70px));
+}
+.incoming-call-screen {
+  background: radial-gradient(circle at 50% 20%, #4a2320, #14110f 75%);
 }
 /* ⚠️ Essentiel : sans ça, l'attribut HTML `hidden` (ajouté/retiré par
-   calls.js pour afficher/masquer ces deux éléments) est silencieusement
-   ignoré, car `display: flex` ci-dessus a la même priorité CSS que la
-   règle native de `hidden` mais passe après elle — donc il gagne, et les
-   deux restent visibles EN PERMANENCE dès leur création. Cette règle,
-   plus spécifique, force `hidden` à reprendre le dessus. */
-.call-banner[hidden], .call-overlay[hidden] {
+   calls.js pour afficher/masquer ces écrans) est silencieusement ignoré,
+   car `display: flex` ci-dessus a la même priorité CSS que la règle native
+   de `hidden` mais passe après elle — donc il gagne, et l'écran reste
+   visible EN PERMANENCE dès sa création. Cette règle, plus spécifique,
+   force `hidden` à reprendre le dessus. */
+.call-overlay[hidden] {
   display: none;
 }
-.call-status { position: absolute; top: max(24px, env(safe-area-inset-top)); font-size: .95rem; opacity: .85; }
+
+.call-avatar-wrap, .call-name, .call-substatus, .call-actions-incoming, .call-controls {
+  position: relative;
+  z-index: 1;
+}
+.call-avatar {
+  width: 128px; height: 128px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--red));
+  background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 3rem; font-weight: 800; color: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+}
+.call-avatar-photo { font-size: 0; }
+.call-avatar-pulse { animation: call-pulse 1.7s ease-out infinite; }
+@keyframes call-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255,255,255,.35), 0 10px 30px rgba(0,0,0,.4); }
+  100% { box-shadow: 0 0 0 28px rgba(255,255,255,0), 0 10px 30px rgba(0,0,0,.4); }
+}
+.call-name { font-size: 1.4rem; font-weight: 800; margin-top: 14px; }
+.call-substatus { font-size: .92rem; opacity: .8; margin-top: 4px; min-height: 1.2em; }
+
+.call-actions-incoming {
+  position: absolute; bottom: max(50px, calc(env(safe-area-inset-bottom) + 20px));
+  display: flex; gap: 56px;
+}
+.call-action { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: .78rem; opacity: .9; }
+.btn-call-lg { width: 66px; height: 66px; font-size: 1.6rem; }
+
 .remote-video {
+  position: absolute; inset: 0; z-index: 0;
   width: 100%; height: 100%; object-fit: cover; background: #1c1a17;
 }
 .local-video {
-  position: absolute; bottom: 110px; right: 18px;
-  width: 110px; height: 150px; object-fit: cover;
+  position: absolute; bottom: 130px; right: 18px; z-index: 1;
+  width: 100px; height: 140px; object-fit: cover;
   border-radius: 14px; border: 2px solid rgba(255,255,255,.3);
-  background: #1c1a17;
+  background: #1c1a17; box-shadow: 0 6px 18px rgba(0,0,0,.3);
 }
 .call-controls {
-  position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); display: flex; gap: 24px;
+  position: absolute; bottom: max(40px, calc(env(safe-area-inset-bottom) + 10px)); display: flex; gap: 34px;
 }
-.call-controls .btn-round { width: 64px; height: 64px; font-size: 1.5rem; background: rgba(255,255,255,.15); color: #fff; border: none; }
+.call-controls .btn-round { width: 56px; height: 56px; font-size: 1.35rem; background: rgba(255,255,255,.16); color: #fff; border: none; }
 .call-controls .btn-pass { background: var(--red); }
+.btn-muted { background: #fff !important; color: var(--ink) !important; }
+
+/* --- Indicateur "en train d'écrire" dans le fil de discussion --- */
+.typing-indicator { display: flex !important; gap: 4px; align-items: center; padding: 13px 16px !important; }
+.typing-indicator span {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--muted);
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+.typing-indicator span:nth-child(2) { animation-delay: .15s; }
+.typing-indicator span:nth-child(3) { animation-delay: .3s; }
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
 
 /* --- Pages légales (CGU / Confidentialité) --- */
 .legal-page { max-width: 680px; }

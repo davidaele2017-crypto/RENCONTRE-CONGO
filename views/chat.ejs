@@ -6,12 +6,18 @@
 <body class="chat-page" data-logged-in="1">
   <div id="app-content" class="chat-shell">
     <header class="topbar">
-      <a class="brand" href="/matches">← <%= profile.name %></a>
+      <a class="brand chat-brand" href="/matches">
+        <span class="chat-back">←</span>
+        <span class="chat-contact-info">
+          <span class="chat-contact-name"><%= profile.name %></span>
+          <span class="chat-contact-status" id="chat-typing-status" hidden>écrit...</span>
+        </span>
+      </a>
       <div class="chat-header-actions">
         <% if (canCall) { %>
           <div class="call-buttons">
-            <button type="button" class="btn btn-round btn-small-round" onclick="startCall('<%= match.id %>', 'audio')" aria-label="Appel vocal">📞</button>
-            <button type="button" class="btn btn-round btn-small-round" onclick="startCall('<%= match.id %>', 'video')" aria-label="Appel vidéo">🎥</button>
+            <button type="button" class="btn btn-round btn-small-round" data-call-mode="audio" data-match-id="<%= match.id %>" data-contact-name="<%= profile.name %>" data-contact-photo="<%= profile.photo ? '/uploads/' + profile.photo : '' %>" aria-label="Appel vocal">📞</button>
+            <button type="button" class="btn btn-round btn-small-round" data-call-mode="video" data-match-id="<%= match.id %>" data-contact-name="<%= profile.name %>" data-contact-photo="<%= profile.photo ? '/uploads/' + profile.photo : '' %>" aria-label="Appel vidéo">🎥</button>
           </div>
         <% } else { %>
           <a href="/premium" class="call-locked" title="Réservé aux packs Premium et VIP">🔒 Appels</a>
@@ -36,6 +42,7 @@
       <input type="text" id="chat-input" name="text" placeholder="Écris un message..." autocomplete="off" maxlength="2000" required>
       <button type="submit" class="btn btn-primary btn-small">Envoyer</button>
     </form>
+    <script src="/public/js/sounds.js"></script>
     <script src="/public/js/calls.js"></script>
     <script src="/public/js/chat.js"></script>
   </div>
