@@ -40,15 +40,19 @@
     </form>
 
     <% if (plan.advancedFilters) { %>
-      <form method="GET" action="/browse" class="filter-bar">
+      <form method="GET" action="/browse" class="filter-bar filter-bar-vip">
         <input type="hidden" name="ville" value="<%= filters.ville %>">
         <input type="hidden" name="langue" value="<%= filters.langue %>">
         <input type="number" name="ageMin" min="18" max="99" placeholder="Âge min" value="<%= filters.ageMin || '' %>">
         <input type="number" name="ageMax" min="18" max="99" placeholder="Âge max" value="<%= filters.ageMax || '' %>">
+        <input type="text" name="commune" list="communes-list" placeholder="Commune / quartier" value="<%= filters.commune || '' %>">
+        <datalist id="communes-list">
+          <% communesKinshasa.forEach(c => { %><option value="<%= c %>"><% }) %>
+        </datalist>
         <button type="submit" class="btn btn-small">👑</button>
       </form>
     <% } else { %>
-      <a href="/premium" class="filter-locked">🔒 Filtre par tranche d'âge — réservé au pack VIP</a>
+      <a href="/premium" class="filter-locked">🔒 Filtres avancés (tranche d'âge, commune/quartier) — réservés au pack VIP</a>
     <% } %>
 
     <% if (candidate) { %>
@@ -63,7 +67,7 @@
         </div>
         <div class="swipe-info">
           <h2><%= candidate.name %>, <%= candidate.age %></h2>
-          <p class="location">📍 <%= candidate.ville %>, <%= candidate.pays %></p>
+          <p class="location">📍 <% if (candidate.commune) { %><%= candidate.commune %>, <% } %><%= candidate.ville %>, <%= candidate.pays %></p>
           <% if (candidate.langues && candidate.langues.length) { %>
             <p class="langue-tags">
               <% candidate.langues.forEach(l => { %><span class="tag"><%= l %></span><% }) %>
@@ -77,6 +81,7 @@
             <input type="hidden" name="langue" value="<%= filters.langue %>">
             <input type="hidden" name="ageMin" value="<%= filters.ageMin || '' %>">
             <input type="hidden" name="ageMax" value="<%= filters.ageMax || '' %>">
+            <input type="hidden" name="commune" value="<%= filters.commune || '' %>">
             <button type="submit" class="btn btn-round btn-pass" aria-label="Passer">✖️</button>
           </form>
           <form method="POST" action="/browse/like/<%= candidate.userId %>">
@@ -84,11 +89,12 @@
             <input type="hidden" name="langue" value="<%= filters.langue %>">
             <input type="hidden" name="ageMin" value="<%= filters.ageMin || '' %>">
             <input type="hidden" name="ageMax" value="<%= filters.ageMax || '' %>">
+            <input type="hidden" name="commune" value="<%= filters.commune || '' %>">
             <button type="submit" class="btn btn-round btn-like" aria-label="J'aime">❤️</button>
           </form>
         </div>
       </div>
-      <% const backUrl = '/browse?' + new URLSearchParams({ ville: filters.ville || '', langue: filters.langue || '' }).toString(); %>
+      <% const backUrl = '/browse?' + new URLSearchParams({ ville: filters.ville || '', langue: filters.langue || '', commune: filters.commune || '' }).toString(); %>
       <p class="card-meta-actions">
         <a href="/signaler/<%= candidate.userId %>?next=<%= encodeURIComponent(backUrl) %>">🚩 Signaler</a>
         <span aria-hidden="true">·</span>

@@ -67,6 +67,13 @@
         </datalist>
       </label>
 
+      <label>Commune / quartier (facultatif)
+        <input type="text" name="commune" list="communes-list" value="<%= profile.commune || '' %>" placeholder="Ex : Gombe">
+        <datalist id="communes-list">
+          <% communesKinshasa.forEach(c => { %><option value="<%= c %>"><% }) %>
+        </datalist>
+      </label>
+
       <fieldset class="langues">
         <legend>Langues parlées</legend>
         <% langues.forEach(l => { %>

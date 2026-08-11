@@ -301,6 +301,7 @@ app.get('/profile/edit', requireAuth, h(async (req, res) => {
     profile,
     langues: store.LANGUES,
     villes: store.VILLES,
+    communesKinshasa: store.COMMUNES_KINSHASA,
     besoin: req.query.besoin === '1',
     error: req.query.error || null
   });
@@ -312,7 +313,7 @@ app.post('/profile/edit', requireAuth, (req, res, next) => {
     next();
   });
 }, h(async (req, res) => {
-  const { name, age, gender, lookingFor, pays, ville, bio } = req.body;
+  const { name, age, gender, lookingFor, pays, ville, commune, bio } = req.body;
   let langues = req.body.langues || [];
   if (!Array.isArray(langues)) langues = [langues];
 
@@ -326,6 +327,7 @@ app.post('/profile/edit', requireAuth, (req, res, next) => {
     gender, lookingFor,
     pays: pays || 'RDC',
     ville: String(ville).trim(),
+    commune: String(commune || '').trim().slice(0, 80),
     langues,
     bio: String(bio || '').trim().slice(0, 500)
   };
@@ -349,6 +351,7 @@ app.get('/browse', requireAuth, requireProfile, h(async (req, res) => {
   if (plan.advancedFilters) {
     if (req.query.ageMin) filters.ageMin = parseInt(req.query.ageMin, 10) || undefined;
     if (req.query.ageMax) filters.ageMax = parseInt(req.query.ageMax, 10) || undefined;
+    if (req.query.commune) filters.commune = String(req.query.commune).trim().slice(0, 80);
   }
 
   const candidates = await store.getCandidates(req.session.userId, filters);
@@ -366,6 +369,7 @@ app.get('/browse', requireAuth, requireProfile, h(async (req, res) => {
     filters,
     villes: store.VILLES,
     langues: store.LANGUES,
+    communesKinshasa: store.COMMUNES_KINSHASA,
     matched: req.query.matched || null,
     limite: req.query.limite === '1',
     remainingLikes: store.remainingLikesToday(user),
@@ -378,6 +382,7 @@ app.post('/browse/like/:targetId', requireAuth, requireProfile, h(async (req, re
   const qs = new URLSearchParams({ ville: req.body.ville || '', langue: req.body.langue || '' });
   if (req.body.ageMin) qs.set('ageMin', req.body.ageMin);
   if (req.body.ageMax) qs.set('ageMax', req.body.ageMax);
+  if (req.body.commune) qs.set('commune', req.body.commune);
 
   if (!store.canLike(user)) {
     qs.set('limite', '1');
@@ -401,6 +406,7 @@ app.post('/browse/pass/:targetId', requireAuth, requireProfile, h(async (req, re
   const qs = new URLSearchParams({ ville: req.body.ville || '', langue: req.body.langue || '' });
   if (req.body.ageMin) qs.set('ageMin', req.body.ageMin);
   if (req.body.ageMax) qs.set('ageMax', req.body.ageMax);
+  if (req.body.commune) qs.set('commune', req.body.commune);
   await store.addPass(req.session.userId, req.params.targetId);
   res.redirect('/browse?' + qs.toString());
 }));

@@ -9,6 +9,7 @@ Application de rencontre simple, pensée pour la communauté congolaise (RDC & C
 - Like / Passer, avec détection automatique du match mutuel
 - Messagerie simple entre personnes qui ont matché
 - **3 packs** : Standard (gratuit), Premium et VIP — voir `lib/plans.js`
+- **Filtre par commune/quartier** (ex : Gombe, Lemba...), réservé au pack VIP, en plus du filtre par tranche d'âge
 - **Paiement Mobile Money** (Orange Money, Airtel Money, M-Pesa, carte) via CinetPay — voir section dédiée
 - **Appels vocaux et vidéo** entre matchs (réservés Premium/VIP) via WebRTC
 - **Signalement et blocage de profils**, accessibles depuis la découverte et le chat

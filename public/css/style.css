@@ -188,6 +188,11 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 .filter-bar select {
   flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: #fff;
 }
+.filter-bar-vip input[type=number] { width: 0; flex: 1; min-width: 0; }
+.filter-bar-vip input[type=text] { flex: 1.4; min-width: 0; }
+.filter-bar-vip input {
+  padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: #fff;
+}
 
 /* --- Carte de découverte --- */
 .swipe-card {
