@@ -177,18 +177,18 @@
       setTimeout(cleanupCall, 2000);
       return;
     }
-    send({ type: 'call-accept', matchId });
+    send({ type: 'call-accepted', matchId });
     incomingCallInfo = null;
   });
 
   document.getElementById('decline-call-btn').addEventListener('click', () => {
-    if (incomingCallInfo) send({ type: 'call-decline', matchId: incomingCallInfo.matchId });
+    if (incomingCallInfo) send({ type: 'call-declined', matchId: incomingCallInfo.matchId });
     incomingCallInfo = null;
     hideIncomingBanner();
   });
 
   document.getElementById('hangup-btn').addEventListener('click', () => {
-    if (currentMatchId) send({ type: 'call-end', matchId: currentMatchId });
+    if (currentMatchId) send({ type: 'call-ended', matchId: currentMatchId });
     cleanupCall();
   });
 
