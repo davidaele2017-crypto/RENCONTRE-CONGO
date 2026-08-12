@@ -387,6 +387,12 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
   display: flex; gap: 56px;
 }
 .call-action { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: .78rem; opacity: .9; }
+/* Le bouton haut-parleur est masqué/affiché dynamiquement via l'attribut
+   `hidden` (voir calls.js, sinkIdSupported) — sans cette règle, `display:
+   flex` ci-dessus gagnerait sur `hidden` (même spécificité CSS, mais
+   déclaré après la règle native du navigateur) et le bouton resterait
+   visible en permanence même sans support de setSinkId(). */
+.call-action[hidden] { display: none; }
 .btn-call-lg { width: 66px; height: 66px; font-size: 1.6rem; }
 
 .remote-video {
@@ -405,6 +411,7 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 .call-controls .btn-round { width: 56px; height: 56px; font-size: 1.35rem; background: rgba(255,255,255,.16); color: #fff; border: none; }
 .call-controls .btn-pass { background: var(--red); }
 .btn-muted { background: #fff !important; color: var(--ink) !important; }
+.btn-active { background: var(--gold) !important; color: var(--ink) !important; }
 
 /* --- Indicateur "en train d'écrire" dans le fil de discussion --- */
 .typing-indicator { display: flex !important; gap: 4px; align-items: center; padding: 13px 16px !important; }

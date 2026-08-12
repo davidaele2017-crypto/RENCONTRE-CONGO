@@ -2,7 +2,7 @@
 // de secours hors-ligne. Ne met PAS en cache les pages dynamiques (chat,
 // profils, etc.) — seulement les fichiers statiques — pour ne jamais montrer
 // de contenu périmé sur une app où tout change en temps réel.
-const CACHE_NAME = 'rencontre-congo-v3';
+const CACHE_NAME = 'rencontre-congo-v4';
 const PRECACHE_URLS = [
   '/public/css/style.css',
   '/public/js/router.js',

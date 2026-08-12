@@ -26,6 +26,19 @@
   let callTimerInterval = null;
   let callConnectedAt = null;
 
+  // --- Sortie audio (écouteur/oreillette vs haut-parleur) ------------------
+  // Sur mobile, le flux WebRTC ressort souvent sur le haut-parleur par
+  // défaut (comportement navigateur, pas un bug de l'app) au lieu de
+  // l'écouteur comme un vrai appel téléphonique. HTMLMediaElement.setSinkId()
+  // permet de corriger ça, mais son support est très inégal : Chrome
+  // desktop/Android récents oui, Safari iOS jamais (l'OS gère seul la sortie
+  // audio là-bas) — le bouton n'apparaît donc que si le navigateur le permet
+  // réellement, pour ne pas proposer un bouton qui ne ferait rien.
+  const sinkIdSupported = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
+  let speakerDeviceId = '';   // '' = sortie par défaut (souvent le haut-parleur sur mobile)
+  let earpieceDeviceId = '';  // périphérique "écouteur"/"récepteur" trouvé, si l'appareil en expose un
+  let onSpeaker = true;       // reflète l'état RÉEL de la sortie active (pas juste l'intention)
+
   // --- UI : construite dynamiquement pour ne pas avoir à toucher chaque vue ---
   // Deux écrans plein écran façon WhatsApp : l'un pour un appel entrant
   // (avatar + nom + accepter/refuser), l'autre pour l'appel en cours.
@@ -66,6 +79,10 @@
           <button type="button" id="hangup-btn" class="btn btn-round btn-pass btn-call-lg">📞</button>
           <span>Terminer</span>
         </div>
+        <div class="call-action" id="speaker-action" hidden>
+          <button type="button" id="speaker-toggle-btn" class="btn btn-round">🔈</button>
+          <span>Haut-parleur</span>
+        </div>
       </div>
     </div>
   `;
@@ -84,6 +101,8 @@
   const voiceAvatarFallback = document.getElementById('voice-avatar-fallback');
   const remoteVideo = document.getElementById('remote-video');
   const localVideo = document.getElementById('local-video');
+  const speakerAction = document.getElementById('speaker-action');
+  const speakerBtn = document.getElementById('speaker-toggle-btn');
 
   let incomingCallInfo = null;
 
@@ -143,7 +162,73 @@
     localVideo.srcObject = null;
     window.RCSounds && window.RCSounds.stopRingback();
     stopCallTimer();
+    speakerAction.hidden = true;
+    onSpeaker = true;
   }
+
+  function updateSpeakerBtnUI() {
+    speakerBtn.textContent = onSpeaker ? '🔊' : '🔈';
+    speakerBtn.classList.toggle('btn-active', onSpeaker);
+  }
+
+  // Repère, parmi les sorties audio de l'appareil, celle qui ressemble à un
+  // haut-parleur et celle qui ressemble à un écouteur (labels standards des
+  // navigateurs — pas de traduction possible, ils viennent du système).
+  async function findAudioOutputs() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const outputs = devices.filter(d => d.kind === 'audiooutput');
+      const speaker = outputs.find(d => /speaker/i.test(d.label));
+      const earpiece = outputs.find(d => /earpiece|receiver/i.test(d.label));
+      return { speaker, earpiece };
+    } catch (e) {
+      return { speaker: null, earpiece: null };
+    }
+  }
+
+  // Appelé une fois la connexion établie : si l'appareil expose bien un
+  // écouteur distinct du haut-parleur, on bascule automatiquement dessus
+  // pour un appel vocal (comme un vrai appel téléphonique) — la vidéo garde
+  // le haut-parleur par défaut, plus logique pour ce cas d'usage.
+  async function setupAudioOutput(mode) {
+    speakerAction.hidden = true;
+    if (!sinkIdSupported) return; // pas d'API -> pas de bouton plutôt qu'un bouton mort (ex: Safari iOS)
+
+    const { speaker, earpiece } = await findAudioOutputs();
+    speakerDeviceId = speaker ? speaker.deviceId : '';
+    earpieceDeviceId = earpiece ? earpiece.deviceId : '';
+
+    if (mode === 'audio' && earpiece) {
+      try {
+        await remoteVideo.setSinkId(earpiece.deviceId);
+        onSpeaker = false;
+      } catch (e) {
+        onSpeaker = true;
+      }
+    } else {
+      onSpeaker = true; // sortie par défaut (déjà le haut-parleur dans la plupart des cas)
+    }
+
+    // Le bouton n'a d'intérêt que s'il y a vraiment deux sorties différentes
+    // à proposer — sinon "basculer" ne changerait rien.
+    if (speaker || earpiece) {
+      speakerAction.hidden = false;
+      updateSpeakerBtnUI();
+    }
+  }
+
+  speakerBtn.addEventListener('click', async () => {
+    if (!sinkIdSupported) return;
+    const goToSpeaker = !onSpeaker;
+    const targetId = goToSpeaker ? speakerDeviceId : earpieceDeviceId;
+    try {
+      await remoteVideo.setSinkId(targetId || '');
+      onSpeaker = goToSpeaker;
+      updateSpeakerBtnUI();
+    } catch (e) {
+      // L'appareil refuse ce périphérique précis -> on ne change pas l'état affiché.
+    }
+  });
 
   function warnBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; }
 
@@ -191,6 +276,7 @@
       if (pc && pc.connectionState === 'connected') {
         window.RCSounds && window.RCSounds.stopRingback();
         startCallTimer();
+        setupAudioOutput(currentMode);
       }
       if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) {
         stopCallTimer();
