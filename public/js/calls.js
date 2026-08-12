@@ -414,8 +414,10 @@
         window.RCSounds && window.RCSounds.stopAll();
         if (msg.reason === 'premium-required') {
           alert('Les appels sont réservés aux packs Premium et VIP. Va sur la page Premium pour en profiter.');
-        } else if (msg.reason === 'offline') {
-          alert('Cette personne n\'est pas connectée à l\'instant.');
+        } else if (msg.reason === 'no-answer') {
+          alert('Pas de réponse. La personne a été prévenue par notification mais n\'a pas décroché à temps.');
+        } else if (msg.reason === 'blocked') {
+          alert('Impossible d\'appeler cette personne.');
         }
         cleanupCall();
         break;

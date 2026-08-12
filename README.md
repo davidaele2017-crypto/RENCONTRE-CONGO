@@ -79,7 +79,7 @@ Accessibles depuis une carte de découverte (`/browse`) ou le menu « ⋮ » d'u
 
 Le gating est fait côté serveur à tous les niveaux (recherche de profils, chat, et jusqu'à la signalisation WebSocket des appels) — pas seulement caché dans l'interface.
 
-## Notifications push (nouveau match, nouveau message)
+## Notifications push (nouveau match, nouveau message, appel entrant)
 Contrairement à CinetPay ou Twilio, **aucun compte tiers ni abonnement à créer** — ça repose sur le standard Web Push (protocole VAPID), pris en charge nativement par les navigateurs, gratuit et sans inscription.
 
 1. Génère une paire de clés (une seule fois, à garder stable) :
@@ -90,9 +90,19 @@ Contrairement à CinetPay ou Twilio, **aucun compte tiers ni abonnement à crée
 
 Le flux : un bouton **🔔 Activer** apparaît dans la nav (`public/js/push.js`) tant que la personne n'a pas encore autorisé les notifications sur cet appareil — jamais de demande de permission automatique (les navigateurs l'ignorent si ce n'est pas déclenché par un clic). Une fois autorisées, le serveur envoie une notification (`lib/push.js`) :
 - à la personne qui reçoit un **nouveau match** (celle qui vient de liker voit déjà le match s'afficher, inutile de la notifier elle-même) ;
-- à la personne qui reçoit un **nouveau message** dans un match existant.
+- à la personne qui reçoit un **nouveau message** dans un match existant ;
+- à la personne qui reçoit un **appel** alors qu'elle n'a l'app ouverte sur aucun appareil (voir ci-dessous).
 
 Les abonnements morts (désinstallation, permission retirée...) sont détectés automatiquement (réponse 404/410 du service de push) et supprimés de la base.
+
+### Appel entrant quand l'app est fermée
+Un appel (contrairement à un message) a besoin d'une connexion WebSocket active pour être négocié — une notification push seule ne peut pas "faire sonner" une app complètement fermée comme un vrai téléphone. Le compromis mis en place (`lib/signaling.js`) :
+1. Si la personne appelée n'a aucune connexion ouverte au moment de l'appel, celui-ci reste **"en attente"** côté serveur (45s, comme une vraie sonnerie) au lieu d'échouer tout de suite — l'appelant continue d'entendre la tonalité comme si ça sonnait.
+2. Une notification push part immédiatement (`🔔 requireInteraction` + vibration, pour se distinguer d'un simple message).
+3. Si la personne ouvre l'app à temps (en tapant la notification ou autrement), l'appel en attente lui est délivré dès que sa connexion WebSocket s'établit — elle voit l'écran d'appel entrant classique.
+4. Passé le délai sans réponse, l'appelant reçoit "Pas de réponse".
+
+⚠️ Ça suppose que l'OS laisse le service worker recevoir la notification push même app fermée (vrai sur Android ; sur iPhone ça nécessite l'app installée sur l'écran d'accueil, voir plus haut) — ce n'est pas un vrai système d'appel téléphonique en tâche de fond, juste le meilleur compromis possible avec les standards du web.
 
 ⚠️ **Sur iPhone**, les notifications push ne fonctionnent que si l'app a été **installée sur l'écran d'accueil** (voir section PWA ci-dessous) — Safari ne les autorise pas dans un simple onglet, c'est une limite d'iOS (16.4+), pas de l'app.
 

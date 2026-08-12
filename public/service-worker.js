@@ -2,7 +2,7 @@
 // de secours hors-ligne. Ne met PAS en cache les pages dynamiques (chat,
 // profils, etc.) — seulement les fichiers statiques — pour ne jamais montrer
 // de contenu périmé sur une app où tout change en temps réel.
-const CACHE_NAME = 'rencontre-congo-v4';
+const CACHE_NAME = 'rencontre-congo-v5';
 const PRECACHE_URLS = [
   '/public/css/style.css',
   '/public/js/router.js',
@@ -59,7 +59,7 @@ self.addEventListener('fetch', (event) => {
   // Tout le reste (données de l'app, WebSocket, appels API) : réseau direct.
 });
 
-// --- Notifications push (nouveaux matchs, nouveaux messages) ---------------
+// --- Notifications push (nouveaux matchs, nouveaux messages, appels) -------
 // Le service worker tourne même quand l'onglet/l'app est fermé — c'est lui
 // qui reçoit la notification envoyée par le serveur (lib/push.js) et
 // l'affiche, peu importe si l'app est ouverte ou non.
@@ -75,6 +75,14 @@ self.addEventListener('push', (event) => {
     data: { url: data.url || '/' },
     tag: data.tag || undefined, // regroupe les notifs successives du même match (ex: plusieurs messages)
   };
+
+  // Un appel entrant mérite plus d'insistance qu'un message : reste affiché
+  // tant que la personne n'a pas interagi (au lieu de disparaître tout
+  // seul), et fait vibrer le téléphone si le navigateur le permet.
+  if (data.isCall) {
+    options.requireInteraction = true;
+    options.vibrate = [400, 200, 400, 200, 400];
+  }
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
