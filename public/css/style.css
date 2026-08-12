@@ -398,6 +398,7 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 .remote-video {
   position: absolute; inset: 0; z-index: 0;
   width: 100%; height: 100%; object-fit: cover; background: #1c1a17;
+  cursor: pointer; /* indique qu'un clic bascule en plein écran (appel vidéo) */
 }
 .local-video {
   position: absolute; bottom: 130px; right: 18px; z-index: 1;
@@ -412,6 +413,17 @@ fieldset.langues legend { padding: 0 6px; font-size: .85rem; font-weight: 700; c
 .call-controls .btn-pass { background: var(--red); }
 .btn-muted { background: #fff !important; color: var(--ink) !important; }
 .btn-active { background: var(--gold) !important; color: var(--ink) !important; }
+
+/* --- Bouton plein écran (appels vidéo) --- */
+.fullscreen-corner-btn {
+  position: absolute; top: max(20px, calc(env(safe-area-inset-top) + 10px)); right: 20px;
+  z-index: 2; width: 44px; height: 44px; font-size: 1.15rem;
+  background: rgba(0,0,0,.35); color: #fff; border: none;
+}
+/* Même piège que les autres boutons togglés via `hidden` : .btn-round a un
+   `display: flex` inconditionnel qui gagnerait sinon sur `hidden` (même
+   spécificité CSS, déclaré après la règle native du navigateur). */
+.fullscreen-corner-btn[hidden] { display: none; }
 
 /* --- Indicateur "en train d'écrire" dans le fil de discussion --- */
 .typing-indicator { display: flex !important; gap: 4px; align-items: center; padding: 13px 16px !important; }

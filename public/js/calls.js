@@ -84,6 +84,7 @@
           <span>Haut-parleur</span>
         </div>
       </div>
+      <button type="button" id="fullscreen-toggle-btn" class="btn btn-round fullscreen-corner-btn" hidden aria-label="Plein écran">⛶</button>
     </div>
   `;
   document.body.appendChild(ui);
@@ -103,6 +104,7 @@
   const localVideo = document.getElementById('local-video');
   const speakerAction = document.getElementById('speaker-action');
   const speakerBtn = document.getElementById('speaker-toggle-btn');
+  const fullscreenBtn = document.getElementById('fullscreen-toggle-btn');
 
   let incomingCallInfo = null;
 
@@ -155,8 +157,10 @@
     localVideo.style.display = isVideo ? '' : 'none';
     remoteVideo.style.display = isVideo ? '' : 'none';
     voiceAvatarWrap.hidden = isVideo;
+    fullscreenBtn.hidden = !(isVideo && fullscreenAvailable);
   }
   function hideOverlay() {
+    if (isFullscreenActive()) exitFullscreenNow().catch(() => {});
     callOverlay.hidden = true;
     remoteVideo.srcObject = null;
     localVideo.srcObject = null;
@@ -164,6 +168,7 @@
     stopCallTimer();
     speakerAction.hidden = true;
     onSpeaker = true;
+    fullscreenBtn.hidden = true;
   }
 
   function updateSpeakerBtnUI() {
@@ -229,6 +234,57 @@
       // L'appareil refuse ce périphérique précis -> on ne change pas l'état affiché.
     }
   });
+
+  // --- Plein écran (appels vidéo uniquement) --------------------------------
+  // Comme sur les apps de messagerie modernes : un clic sur la vidéo (ou sur
+  // le bouton en coin) bascule en plein écran natif du navigateur — masque la
+  // barre d'adresse et l'interface du navigateur, pas juste notre overlay qui
+  // occupe déjà tout le viewport en CSS.
+  const standardFullscreenSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  // Safari iOS ne permet pas de mettre un <div> en plein écran, seulement un
+  // <video> via cette API spécifique — pas d'équivalent standard là-bas.
+  const iosVideoFullscreenOnly = !standardFullscreenSupported && typeof remoteVideo.webkitEnterFullscreen === 'function';
+  const fullscreenAvailable = standardFullscreenSupported || iosVideoFullscreenOnly;
+
+  function isFullscreenActive() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+
+  function requestFullscreenOn(el) {
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    return fn ? fn.call(el) : Promise.reject(new Error('non supporté'));
+  }
+
+  function exitFullscreenNow() {
+    const fn = document.exitFullscreen || document.webkitExitFullscreen;
+    return fn ? fn.call(document) : Promise.resolve();
+  }
+
+  async function toggleFullscreen() {
+    if (currentMode !== 'video') return;
+    if (isFullscreenActive()) {
+      try { await exitFullscreenNow(); } catch (e) {}
+      return;
+    }
+    if (standardFullscreenSupported) {
+      try { await requestFullscreenOn(callOverlay); } catch (e) {}
+    } else if (iosVideoFullscreenOnly) {
+      // Plein écran natif de la seule vidéo (l'OS gère ses propres contrôles
+      // de sortie) — on ne peut pas suivre son état via fullscreenchange ici.
+      try { remoteVideo.webkitEnterFullscreen(); } catch (e) {}
+    }
+  }
+
+  function updateFullscreenBtnUI() {
+    fullscreenBtn.classList.toggle('btn-active', isFullscreenActive());
+  }
+  document.addEventListener('fullscreenchange', updateFullscreenBtnUI);
+  document.addEventListener('webkitfullscreenchange', updateFullscreenBtnUI);
+
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+  // Le "simple clic" demandé : cliquer/taper directement sur la vidéo bascule
+  // aussi le plein écran, pas seulement le bouton dédié.
+  remoteVideo.addEventListener('click', toggleFullscreen);
 
   function warnBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; }
 
